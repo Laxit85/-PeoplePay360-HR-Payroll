@@ -102,7 +102,7 @@
     .server-status-bar {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
 
     .status-badge {
@@ -113,7 +113,7 @@
       border: 1px solid var(--panel-border);
       padding: 6px 14px;
       border-radius: 20px;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
     }
 
     .status-dot {
@@ -140,10 +140,51 @@
       border: 1px solid var(--panel-border);
       color: #38bdf8;
       font-family: var(--font-mono);
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       padding: 6px 12px;
       border-radius: 6px;
-      width: 210px;
+      width: 180px;
+    }
+
+    /* Auth Bar */
+    .auth-banner {
+      background: rgba(15, 23, 42, 0.6);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .auth-presets {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-role {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: #d1d5db;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-role:hover {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .btn-role.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
     }
 
     main {
@@ -405,6 +446,21 @@
     </div>
   </header>
 
+  <!-- Auth Bar -->
+  <div class="auth-banner">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="color:var(--text-muted);">🔐 Auth Session:</span>
+      <span id="authRoleBadge" class="badge badge-success">Authenticating...</span>
+    </div>
+    <div class="auth-presets">
+      <span style="color:var(--text-muted); font-size:0.75rem;">Switch Role:</span>
+      <button id="btnAdmin" class="btn-role active" onclick="loginAs('admin@peoplepay360.internal', 'admin123', 'ADMIN')">Admin</button>
+      <button id="btnHR" class="btn-role" onclick="loginAs('hr.manager@peoplepay360.internal', 'manager123', 'HR_MANAGER')">HR Manager</button>
+      <button id="btnPayroll" class="btn-role" onclick="loginAs('payroll.manager@peoplepay360.internal', 'payroll123', 'HR_PAYROLL_MANAGER')">Payroll Mgr</button>
+      <button id="btnEmp" class="btn-role" onclick="loginAs('alex.morgan@peoplepay360.internal', 'employee123', 'EMPLOYEE')">Employee</button>
+    </div>
+  </div>
+
   <main>
     <!-- LEFT PANEL: Entry Creators -->
     <div class="panel">
@@ -431,21 +487,21 @@
           <div class="grid-2">
             <div class="form-group">
               <label class="form-label">First Name</label>
-              <input type="text" id="empFirst" class="input-text" value="Rahul" required>
+              <input type="text" id="empFirst" class="input-text" value="Laxit" required>
             </div>
             <div class="form-group">
               <label class="form-label">Last Name</label>
-              <input type="text" id="empLast" class="input-text" value="Sharma" required>
+              <input type="text" id="empLast" class="input-text" value="Jangid" required>
             </div>
           </div>
           <div class="form-group">
             <label class="form-label">Email Address</label>
-            <input type="email" id="empEmail" class="input-text" value="rahul.sharma@peoplepay360.internal" required>
+            <input type="email" id="empEmail" class="input-text" value="laxit.jangid@peoplepay360.internal" required>
           </div>
           <div class="grid-2">
             <div class="form-group">
               <label class="form-label">Employee Code</label>
-              <input type="text" id="empCode" class="input-text" value="EMP-00999" required>
+              <input type="text" id="empCode" class="input-text" value="EMP-0989" required>
             </div>
             <div class="form-group">
               <label class="form-label">Department ID</label>
@@ -580,7 +636,7 @@
             </thead>
             <tbody id="dbTableBody">
               <tr>
-                <td colspan="4" style="text-align:center; color:var(--text-muted);">Select table or click Refresh...</td>
+                <td colspan="5" style="text-align:center; color:var(--text-muted);">Select table or click Refresh...</td>
               </tr>
             </tbody>
           </table>
@@ -591,6 +647,8 @@
   </main>
 
   <script>
+    let currentAuthToken = '';
+
     // Set default dates to today
     document.getElementById('attDate').valueAsDate = new Date();
     document.getElementById('leaveStart').valueAsDate = new Date();
@@ -624,12 +682,44 @@
       }
     }
 
+    async function loginAs(email, password, roleName) {
+      const baseUrl = document.getElementById('baseUrl').value;
+      const badge = document.getElementById('authRoleBadge');
+      badge.innerText = `Logging in as ${roleName}...`;
+
+      try {
+        const res = await fetch(`${baseUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        
+        if (data.token) {
+          currentAuthToken = data.token;
+          badge.className = 'badge badge-success';
+          badge.innerText = `🟢 Logged in as ${roleName}`;
+          fetchSelectedTable();
+        } else {
+          badge.className = 'badge badge-info';
+          badge.innerText = `⚠️ Auth failed: ${data.message || 'Check credentials'}`;
+        }
+      } catch (e) {
+        badge.className = 'badge badge-info';
+        badge.innerText = '⚠️ Auth Error';
+      }
+    }
+
     async function submitForm(event, endpoint, targetTable) {
       event.preventDefault();
       const baseUrl = document.getElementById('baseUrl').value;
       const codeElem = document.getElementById('resCode');
       const statusElem = document.getElementById('resStatus');
       const timeElem = document.getElementById('resTime');
+
+      if (!currentAuthToken) {
+        await loginAs('admin@peoplepay360.internal', 'admin123', 'ADMIN');
+      }
 
       codeElem.innerText = 'Sending entry to backend & MySQL database...';
       const startTime = performance.now();
@@ -672,7 +762,10 @@
       try {
         const res = await fetch(`${baseUrl}${endpoint}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentAuthToken}`
+          },
           body: JSON.stringify(payload)
         });
 
@@ -699,10 +792,18 @@
       const thead = document.getElementById('dbTableHeader');
       const tbody = document.getElementById('dbTableBody');
 
+      if (!currentAuthToken) {
+        await loginAs('admin@peoplepay360.internal', 'admin123', 'ADMIN');
+      }
+
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#818cf8;">Fetching live rows from MySQL...</td></tr>';
 
       try {
-        const res = await fetch(`${baseUrl}${endpoint}`);
+        const res = await fetch(`${baseUrl}${endpoint}`, {
+          headers: {
+            'Authorization': `Bearer ${currentAuthToken}`
+          }
+        });
         const data = await res.json();
         
         let rows = Array.isArray(data) ? data : (data.data || data.employees || data.contracts || data.departments || []);
@@ -726,9 +827,9 @@
       }
     }
 
+    // Auto-login as Admin on initial page load
+    loginAs('admin@peoplepay360.internal', 'admin123', 'ADMIN');
     setInterval(checkHealth, 5000);
-    checkHealth();
-    fetchSelectedTable();
   </script>
 </body>
 </html>
