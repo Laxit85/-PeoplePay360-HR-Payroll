@@ -1,0 +1,46 @@
+// src/modules/auth/auth.controller.js
+// Owner: Person 1
+
+const authService = require('./auth.service');
+
+async function register(req, res, next) {
+  try {
+    const { email, password, role, employeeId } = req.body;
+    if (!email || !password || !role) {
+      return res.status(400).json({ error: 'email, password, and role are required' });
+    }
+    const existing = await authService.findUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+    const user = await authService.createUser({ email, password, role, employeeId });
+    res.status(201).json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function login(req, res, next) {
+  try {
+    const { email, password } = req.body;
+    const user = await authService.findUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const valid = await authService.verifyPassword(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const token = authService.signToken(user);
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function me(req, res) {
+  // req.user was set by the `authenticate` middleware
+  res.json({ user: req.user });
+}
+
+module.exports = { register, login, me };

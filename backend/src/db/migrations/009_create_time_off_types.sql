@@ -1,0 +1,6 @@
+-- Owner: Person 3 (Time Off)
+CREATE TABLE IF NOT EXISTS time_off_types (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  is_paid BOOLEAN DEFAULT TRUE
+);
