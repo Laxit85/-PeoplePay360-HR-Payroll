@@ -12,7 +12,7 @@ async function createDatabaseAndTables() {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : '',
-    port: parseInt(process.env.DB_PORT || '3306', 10),
+    port: parseInt(process.env.DB_PORT || '3307', 10),
     multipleStatements: true
   };
 
@@ -32,6 +32,7 @@ async function createDatabaseAndTables() {
     const sqlContent = fs.readFileSync(sqlPath, 'utf8');
     console.log(' Executing schema.sql to create database and tables...');
 
+    await connection.query('DROP DATABASE IF EXISTS `peoplepay360`');
     await connection.query(sqlContent);
 
     // Verify created tables
