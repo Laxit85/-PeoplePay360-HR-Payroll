@@ -12,13 +12,10 @@ body {
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
+  overflow-x: hidden;
 }
 
-/* Global Selection & Caret Prevention Rules:
-   - All static UI elements (headings, labels, descriptions, navbar items, tables, badges) are non-selectable and do NOT show blinking text carets when clicked.
-   - Editable fields (text inputs, textareas) strictly allow text selection and text carets.
-   - Clickable controls (buttons, links, selects) show pointer hand cursor.
-*/
+/* Global Selection & Caret Prevention Rules */
 body, h1, h2, h3, h4, h5, h6, p, span, label, div, th, td, table, header, main, nav, section, article, svg, img, button, a {
   cursor: default;
   user-select: none;
@@ -54,6 +51,78 @@ input[type="submit"],
 .cursor-pointer,
 [role="button"] {
   cursor: pointer !important;
+}
+
+/* 3D Glassmorphism & Neumorphic Utilities */
+.glass-panel {
+  background: rgba(18, 22, 36, 0.75);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(56, 69, 108, 0.4);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(197, 160, 89, 0.1);
+}
+
+.glass-navbar {
+  background: rgba(18, 22, 36, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(56, 69, 108, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-modal {
+  background: rgba(14, 18, 30, 0.92);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(197, 160, 89, 0.3);
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(197, 160, 89, 0.15);
+}
+
+/* 3D Shadows & Elevations */
+.shadow-3d {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(197, 160, 89, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.shadow-gold-lg {
+  box-shadow: 0 14px 40px -10px rgba(197, 160, 89, 0.35), 0 0 20px rgba(197, 160, 89, 0.2);
+}
+
+/* 3D Shimmer Keyframes */
+@keyframes goldShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.gold-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(197, 160, 89, 0.25) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: goldShimmer 3s infinite linear;
+}
+
+/* 3D Floating Animation */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+.animate-float {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+/* Scroll Reveal Entrance Class */
+.scroll-reveal {
+  animation: revealFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes revealFadeUp {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 20px, -40px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 /* Premium Dark Scrollbar */

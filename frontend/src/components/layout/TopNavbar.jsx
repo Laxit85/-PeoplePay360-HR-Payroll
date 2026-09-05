@@ -61,7 +61,7 @@ export function TopNavbar() {
 
   return (
     <>
-      <header className="w-full bg-surface border-b border-border sticky top-0 z-40 shadow-md">
+      <header className="w-full glass-navbar sticky top-0 z-40 shadow-3d">
         {/* Role Quick Switcher Banner */}
         <div className="bg-[#07090F] border-b border-border/60 text-ink-900 px-4 py-1 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">

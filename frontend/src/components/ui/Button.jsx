@@ -1,4 +1,5 @@
 import React from 'react';
+import { MagneticButton } from './MagneticButton';
 
 export const Button = React.forwardRef(
   (
@@ -16,31 +17,33 @@ export const Button = React.forwardRef(
     ref
   ) => {
     const baseStyles =
-      'inline-flex items-center justify-center gap-2 font-medium text-sm transition-all rounded-[var(--radius-sm)] focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed select-none h-9 px-4';
+      'inline-flex items-center justify-center gap-2 font-bold text-sm transition-all rounded-[var(--radius-sm)] focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed select-none h-9 px-4 cursor-pointer relative overflow-hidden';
 
     const variants = {
       primary:
-        'btn-primary bg-primary-600 text-surface-sunken hover:bg-primary-700 active:bg-primary-700 font-bold shadow-xs hover:shadow-gold',
+        'btn-primary bg-primary-600 text-surface-sunken hover:bg-primary-700 active:scale-95 shadow-3d hover:shadow-gold-lg gold-shimmer',
       secondary:
-        'bg-surface-muted border border-border-strong text-ink-900 hover:bg-surface hover:border-primary-600/50 hover:text-primary-600 active:bg-surface-sunken',
+        'bg-surface-muted border border-border-strong text-ink-900 hover:bg-surface hover:border-primary-600/60 hover:text-primary-600 active:scale-95 shadow-3d',
       ghost:
-        'text-ink-600 hover:text-ink-900 hover:bg-surface-muted active:bg-surface-sunken',
+        'text-ink-600 hover:text-ink-900 hover:bg-surface-muted active:scale-95',
       destructive:
-        'btn-destructive bg-danger-600 text-white hover:bg-rose-700 active:bg-rose-800 font-semibold',
+        'btn-destructive bg-danger-600 text-white hover:bg-rose-700 active:scale-95 shadow-3d font-semibold',
     };
 
     return (
-      <button
-        ref={ref}
-        type={type}
-        disabled={disabled}
-        onClick={onClick}
-        className={`${baseStyles} ${variants[variant] || variants.primary} ${className}`}
-        {...props}
-      >
-        {Icon && <Icon className="w-4 h-4 shrink-0" />}
-        {children}
-      </button>
+      <MagneticButton strength={disabled ? 0 : 12}>
+        <button
+          ref={ref}
+          type={type}
+          disabled={disabled}
+          onClick={onClick}
+          className={`${baseStyles} ${variants[variant] || variants.primary} ${className}`}
+          {...props}
+        >
+          {Icon && <Icon className="w-4 h-4 shrink-0" />}
+          <span className="relative z-10">{children}</span>
+        </button>
+      </MagneticButton>
     );
   }
 );

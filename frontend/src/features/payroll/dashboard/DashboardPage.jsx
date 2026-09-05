@@ -16,6 +16,7 @@ import { NetSalaryTrendChart } from '../../../components/charts/NetSalaryTrendCh
 import { StatusDonutChart } from '../../../components/charts/StatusDonutChart';
 import { FilterBar } from './FilterBar';
 import { formatCurrency } from '../../../lib/format';
+import { TiltCard } from '../../../components/ui/TiltCard';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ export function DashboardPage() {
   const { kpis, alerts, deptCostChart, trendChart, statusSplitChart } = dashData;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 scroll-reveal">
       <div>
         <h1 className="text-2xl font-bold font-display text-ink-900 flex items-center gap-2">
           <LayoutDashboard className="w-6 h-6 text-primary-600" />
@@ -98,9 +99,9 @@ export function DashboardPage() {
       {/* Filter Bar */}
       <FilterBar filters={filters} setFilters={setFilters} />
 
-      {/* Alerts Banners Panel (§5.7) */}
+      {/* Alerts Banners Panel */}
       {alerts && alerts.length > 0 && (
-        <div className="p-4 bg-surface border border-border rounded-[var(--radius-md)] flex flex-col gap-2">
+        <TiltCard maxTilt={5} scale={1.01} className="p-4 glass-panel rounded-[var(--radius-md)] flex flex-col gap-2 shadow-3d">
           <h3 className="text-xs font-bold uppercase tracking-wider text-ink-600 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600" />
             <span>Attention Required & System Alerts ({alerts.length})</span>
@@ -110,12 +111,12 @@ export function DashboardPage() {
               <div
                 key={alt.id}
                 onClick={() => navigate('/payroll/payruns')}
-                className={`p-3 rounded-sm text-xs font-semibold flex items-center justify-between border cursor-pointer transition-colors ${
+                className={`p-3 rounded-sm text-xs font-semibold flex items-center justify-between border cursor-pointer transition-all hover:scale-[1.02] ${
                   alt.type === 'danger'
-                    ? 'bg-danger-50 text-danger-600 border-danger-600/30 hover:bg-danger-50/80'
+                    ? 'bg-danger-50 text-danger-600 border-danger-600/30 hover:bg-danger-50/80 shadow-sm'
                     : alt.type === 'attention'
-                    ? 'bg-amber-50 text-amber-600 border-amber-600/30 hover:bg-amber-50/80'
-                    : 'bg-primary-50 text-primary-600 border-primary-600/30 hover:bg-primary-50/80'
+                    ? 'bg-amber-50 text-amber-600 border-amber-600/30 hover:bg-amber-50/80 shadow-sm'
+                    : 'bg-primary-50 text-primary-600 border-primary-600/30 hover:bg-primary-50/80 shadow-sm'
                 }`}
               >
                 <span>{alt.text}</span>
@@ -123,7 +124,7 @@ export function DashboardPage() {
               </div>
             ))}
           </div>
-        </div>
+        </TiltCard>
       )}
 
       {/* KPI Cards Grid */}
@@ -163,41 +164,41 @@ export function DashboardPage() {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Department Salary Cost Bar Chart */}
-        <div className="lg:col-span-2 p-5 bg-surface border border-border rounded-[var(--radius-md)] flex flex-col gap-4">
+        <TiltCard maxTilt={6} scale={1.01} className="lg:col-span-2 p-5 glass-panel rounded-[var(--radius-md)] flex flex-col gap-4 shadow-3d">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-ink-900">Salary Gross Cost by Department</h3>
               <p className="text-xs text-ink-600">Departmental breakdown of monthly gross wage</p>
             </div>
-            <span className="text-xs font-semibold text-primary-600">Bar Chart</span>
+            <span className="text-xs font-semibold text-primary-600 px-2 py-0.5 rounded bg-primary-600/10 border border-primary-600/20">Bar Chart</span>
           </div>
           <DeptCostBarChart data={deptCostChart} />
-        </div>
+        </TiltCard>
 
         {/* Payslip Status Split Donut Chart */}
-        <div className="p-5 bg-surface border border-border rounded-[var(--radius-md)] flex flex-col gap-4">
+        <TiltCard maxTilt={6} scale={1.01} className="p-5 glass-panel rounded-[var(--radius-md)] flex flex-col gap-4 shadow-3d">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-ink-900">Payslip Status Split</h3>
               <p className="text-xs text-ink-600">Paid, Validated, Computed & Warnings</p>
             </div>
-            <span className="text-xs font-semibold text-money-600">Donut</span>
+            <span className="text-xs font-semibold text-money-600 px-2 py-0.5 rounded bg-money-50 border border-money-600/20">Donut</span>
           </div>
           <StatusDonutChart data={statusSplitChart} />
-        </div>
+        </TiltCard>
       </div>
 
       {/* Monthly Net Salary Trend Chart */}
-      <div className="p-5 bg-surface border border-border rounded-[var(--radius-md)] flex flex-col gap-4">
+      <TiltCard maxTilt={6} scale={1.01} className="p-5 glass-panel rounded-[var(--radius-md)] flex flex-col gap-4 shadow-3d">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-ink-900">Monthly Net Salary Trend (5 Months)</h3>
             <p className="text-xs text-ink-600">Historical net salary disbursement progression</p>
           </div>
-          <span className="text-xs font-semibold text-money-600">Line Trend</span>
+          <span className="text-xs font-semibold text-money-600 px-2 py-0.5 rounded bg-money-50 border border-money-600/20">Line Trend</span>
         </div>
         <NetSalaryTrendChart data={trendChart} />
-      </div>
+      </TiltCard>
     </div>
   );
 }
