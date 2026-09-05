@@ -171,6 +171,8 @@ exports.createEmployee = async (req, res) => {
       }
     }
 
+    const codeToUse = employee_code || `EMP-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const [result] = await pool.execute(
       `INSERT INTO employees (
         employee_code, first_name, last_name, email, phone,
@@ -179,7 +181,7 @@ exports.createEmployee = async (req, res) => {
         bank_name, bank_account_no, bank_ifsc_or_routing, tax_id_or_pan, user_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        employee_code, first_name, last_name, email, phone || null,
+        codeToUse, first_name, last_name, email, phone || null,
         department_id || 1, job_position_id || 1, manager_id || null, working_schedule_id || 1,
         employee_type || 'FULL_TIME', employment_status || 'ACTIVE', joining_date || new Date().toISOString().split('T')[0],
         bank_name || null, bank_account_no || null, bank_ifsc_or_routing || null, tax_id_or_pan || null,

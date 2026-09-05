@@ -66,6 +66,7 @@ export function EmployeeListPage() {
       const lastName = nameParts.slice(1).join(' ') || 'Employee';
 
       const res = await createEmployeeApi({
+        employee_code: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
         first_name: firstName,
         last_name: lastName,
         email: workEmail,
@@ -76,8 +77,12 @@ export function EmployeeListPage() {
       });
 
       const newId = res.data?.id || res.id;
+      setName('');
+      setJobTitle('');
+      setWorkEmail('');
+      setWorkPhone('');
       setIsModalOpen(false);
-      fetchEmployees();
+      await fetchEmployees();
       if (newId) {
         navigate(`/employees/${newId}`);
       }
