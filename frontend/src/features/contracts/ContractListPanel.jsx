@@ -101,6 +101,8 @@ export function ContractListPanel() {
     setSelectedContract(null);
     setJobPosition(employee?.jobTitle || 'Software Engineer');
     setWage(7500);
+    if (schedules.length > 0 && !workingScheduleId) setWorkingScheduleId(schedules[0].id);
+    if (structures.length > 0 && !salaryStructureId) setSalaryStructureId(structures[0].id);
     setStatus('ACTIVE');
     setErrorMessage('');
     setIsModalOpen(true);
@@ -112,28 +114,27 @@ export function ContractListPanel() {
     setStartDate(c.startDate ? c.startDate.substring(0, 10) : '2026-01-01');
     setEndDate(c.endDate ? c.endDate.substring(0, 10) : '2026-12-31');
     setWage(c.wage);
-    setWorkingScheduleId(c.workingScheduleId || '');
-    setSalaryStructureId(c.salaryStructureId || '');
+    setWorkingScheduleId(c.workingScheduleId || (schedules[0]?.id || '1'));
+    setSalaryStructureId(c.salaryStructureId || (structures[0]?.id || '1'));
     setStatus(c.status === 'Running' ? 'ACTIVE' : c.status);
     setErrorMessage('');
     setIsModalOpen(true);
   };
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setErrorMessage('');
     setSaving(true);
     try {
+      const targetEmpId = employee?.id || selectedContract?.employeeId || id || 1;
       const payload = {
-        employee_id: id || selectedContract?.employeeId || 1,
-        reference_name: jobPosition,
-        startDate: startDate,
+        employee_id: targetEmpId,
+        reference_name: jobPosition || 'Employment Contract',
         start_date: startDate,
-        endDate: endDate,
         end_date: endDate,
         wage: Number(wage),
-        working_schedule_id: workingScheduleId || null,
-        salary_structure_id: salaryStructureId || 1,
+        working_schedule_id: workingScheduleId || (schedules[0]?.id || null),
+        salary_structure_id: salaryStructureId || (structures[0]?.id || 1),
         status: status === 'Running' ? 'ACTIVE' : status
       };
 
@@ -266,7 +267,7 @@ export function ContractListPanel() {
           >
             {schedules.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({s.hoursPerWeek}h/wk)
+                {s.name} ({s.total_weekly_hours || s.hoursPerWeek || 40}h/wk)
               </option>
             ))}
           </Select>
@@ -278,7 +279,7 @@ export function ContractListPanel() {
           >
             {structures.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({s.code})
+                {s.name} ({s.code || 'STD'})
               </option>
             ))}
           </Select>

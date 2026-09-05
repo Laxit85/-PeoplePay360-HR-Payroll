@@ -54,7 +54,8 @@ exports.getEmployees = async (req, res) => {
 // GET /api/employees/:id (with Smart Counters & Active Contract)
 exports.getEmployeeById = async (req, res) => {
   try {
-    const employeeId = req.params.id;
+    const rawId = req.params.id;
+    const cleanId = String(rawId).replace(/^emp-/i, '');
 
     const [employees] = await pool.execute(
       `SELECT 
@@ -70,8 +71,8 @@ exports.getEmployeeById = async (req, res) => {
       LEFT JOIN job_positions jp ON e.job_position_id = jp.id
       LEFT JOIN working_schedules ws ON e.working_schedule_id = ws.id
       LEFT JOIN employees m ON e.manager_id = m.id
-      WHERE e.id = ?`,
-      [employeeId]
+      WHERE e.id = ? OR e.employee_code = ? OR e.id = ?`,
+      [rawId, rawId, cleanId]
     );
 
     if (employees.length === 0) {
@@ -79,27 +80,28 @@ exports.getEmployeeById = async (req, res) => {
     }
 
     const employee = employees[0];
+    const realId = employee.id;
 
     // Smart Counters
     const [[{ contracts_count }]] = await pool.execute(
       'SELECT COUNT(*) AS contracts_count FROM contracts WHERE employee_id = ?',
-      [employeeId]
+      [realId]
     );
     const [[{ attendance_count }]] = await pool.execute(
       'SELECT COUNT(*) AS attendance_count FROM attendances WHERE employee_id = ?',
-      [employeeId]
+      [realId]
     );
     const [[{ time_off_count }]] = await pool.execute(
       'SELECT COUNT(*) AS time_off_count FROM time_off_requests WHERE employee_id = ?',
-      [employeeId]
+      [realId]
     );
     const [[{ allocations_count }]] = await pool.execute(
       'SELECT COUNT(*) AS allocations_count FROM time_off_allocations WHERE employee_id = ?',
-      [employeeId]
+      [realId]
     );
     const [[{ payslips_count }]] = await pool.execute(
       'SELECT COUNT(*) AS payslips_count FROM payslips WHERE employee_id = ?',
-      [employeeId]
+      [realId]
     );
 
     // Active Contract lookup

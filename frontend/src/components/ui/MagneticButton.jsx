@@ -35,15 +35,11 @@ export function MagneticButton({
         transform: `translate3d(${position.x}px, ${position.y}px, 0px)`,
         transition: 'transform 0.15s cubic-bezier(0.25, 1, 0.5, 1)',
       }}
-      className="inline-block"
+      className={`inline-block ${className}`}
+      onClick={onClick}
+      {...props}
     >
-      <button
-        onClick={onClick}
-        className={`relative overflow-hidden transition-all duration-200 active:scale-95 shadow-3d hover:shadow-gold-lg ${className}`}
-        {...props}
-      >
-        {children}
-      </button>
+      {children}
     </div>
   );
 }

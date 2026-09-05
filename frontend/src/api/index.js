@@ -163,6 +163,16 @@ export const createContractApi = async (contractData) => {
   return response.data;
 };
 
+export const updateContractApi = async (id, contractData) => {
+  const response = await axiosInstance.put(`/contracts/${id}`, contractData);
+  return response.data;
+};
+
+export const deleteContractApi = async (id) => {
+  const response = await axiosInstance.delete(`/contracts/${id}`);
+  return response.data;
+};
+
 // --- DASHBOARD API ---
 export const getDashboardSummaryApi = async () => {
   const response = await axiosInstance.get('/dashboard/stats');

@@ -25,8 +25,9 @@ exports.getContracts = async (req, res) => {
     const params = [];
 
     if (employee_id) {
-      query += ' AND c.employee_id = ?';
-      params.push(employee_id);
+      const cleanEmpId = String(employee_id).replace(/^emp-/i, '');
+      query += ' AND (c.employee_id = ? OR e.employee_code = ? OR c.employee_id = ?)';
+      params.push(employee_id, employee_id, cleanEmpId);
     }
     if (status) {
       query += ' AND c.status = ?';
@@ -78,13 +79,27 @@ exports.createContract = async (req, res) => {
       status
     } = req.body;
 
+    let targetEmployeeId = employee_id;
+    if (typeof targetEmployeeId === 'string') {
+      const cleanEmpId = targetEmployeeId.replace(/^emp-/i, '');
+      const [foundEmp] = await pool.execute(
+        'SELECT id FROM employees WHERE id = ? OR employee_code = ? LIMIT 1',
+        [cleanEmpId, targetEmployeeId]
+      );
+      if (foundEmp.length > 0) {
+        targetEmployeeId = foundEmp[0].id;
+      } else if (!isNaN(cleanEmpId)) {
+        targetEmployeeId = parseInt(cleanEmpId, 10);
+      }
+    }
+
     const normalizedStatus = (status === 'Running' || status === 'ACTIVE') ? 'ACTIVE' : (status || 'DRAFT');
 
     // Concurrency Rule: If creating as ACTIVE, transition any previous active contracts to EXPIRED
     if (normalizedStatus === 'ACTIVE') {
       await pool.execute(
         `UPDATE contracts SET status = 'EXPIRED' WHERE employee_id = ? AND status IN ('ACTIVE', 'Running')`,
-        [employee_id]
+        [targetEmployeeId]
       );
     }
 
@@ -94,8 +109,8 @@ exports.createContract = async (req, res) => {
         wage, wage_type, start_date, end_date, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        employee_id, reference_name || 'Employment Contract', salary_structure_id, working_schedule_id || null,
-        wage, wage_type || 'MONTHLY', start_date, end_date || null, normalizedStatus
+        targetEmployeeId, reference_name || 'Employment Contract', salary_structure_id || 1, working_schedule_id || null,
+        wage || 0, wage_type || 'MONTHLY', start_date, end_date || null, normalizedStatus
       ]
     );
 
