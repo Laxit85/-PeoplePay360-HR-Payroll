@@ -15,15 +15,12 @@ const salaryStructureRoutes = require('./routes/salaryStructureRoutes');
 const payrunRoutes = require('./routes/payrunRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
-const path = require('path');
-
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../../frontend')));
 
 // Mount API Routes
 app.use('/api/auth', authRoutes);
