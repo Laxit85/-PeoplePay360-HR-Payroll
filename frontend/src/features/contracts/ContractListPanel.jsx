@@ -53,9 +53,9 @@ export function ContractListPanel() {
         id ? getEmployeeByIdApi(id) : Promise.resolve(null),
       ]);
 
-      const rawContracts = cRes?.data || cRes || [];
-      const rawSchedules = sRes?.data || sRes || [];
-      const rawStructs = stRes?.data || stRes || [];
+      const rawContracts = Array.isArray(cRes?.data) ? cRes.data : (Array.isArray(cRes) ? cRes : []);
+      const rawSchedules = Array.isArray(sRes?.data) ? sRes.data : (Array.isArray(sRes) ? sRes : []);
+      const rawStructs = Array.isArray(stRes?.data) ? stRes.data : (Array.isArray(stRes) ? stRes : []);
       const empData = empRes?.data || empRes;
 
       const formattedContracts = rawContracts.map((c) => ({

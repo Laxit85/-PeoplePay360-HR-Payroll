@@ -31,7 +31,7 @@ export function EmployeeListPage() {
     setLoading(true);
     try {
       const res = await getEmployeesApi({ search });
-      const rawList = res.data || res || [];
+      const rawList = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       const formatted = rawList.map((emp) => ({
         id: emp.id,
         name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : (emp.name || 'Employee'),
