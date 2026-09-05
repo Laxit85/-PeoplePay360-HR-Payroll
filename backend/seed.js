@@ -1,12 +1,8 @@
-// src/db/seed.js
-// Owner: Person 1 — creates one login per role so teammates can test
-// against real auth immediately. Safe to re-run (uses INSERT ... ON DUPLICATE).
-//
-// Usage: npm run seed
-
+// seed.js
+// Seeds initial user accounts into MySQL (safe to re-run)
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const pool = require('../config/db');
+const pool = require('./src/config/db');
 
 const USERS = [
   { email: 'admin@peoplepay360.test', password: 'password123', role: 'admin' },
