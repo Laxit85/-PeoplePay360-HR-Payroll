@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "init:db": "node create-tables.js",
     "seed": "node seed.js",
-    "test:api": "node test-api.js"
+    "test:api": "node test-api.js",
+    "test:auth": "node test-auth-jwt.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
