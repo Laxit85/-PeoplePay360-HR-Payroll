@@ -11,8 +11,8 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get('redirect') || '/employees';
 
-  const [email, setEmail] = useState('admin@oxp.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('admin@peoplepay360.internal');
+  const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,9 +30,9 @@ export function LoginPage() {
     }
   };
 
-  const handleQuickLogin = (demoEmail) => {
+  const handleQuickLogin = (demoEmail, demoPass) => {
     setEmail(demoEmail);
-    setPassword('password123');
+    setPassword(demoPass);
   };
 
   return (
@@ -104,28 +104,32 @@ export function LoginPage() {
           </p>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <button
-              onClick={() => handleQuickLogin('admin@oxp.com')}
-              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors"
+              type="button"
+              onClick={() => handleQuickLogin('admin@peoplepay360.internal', 'admin123')}
+              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors cursor-pointer"
             >
-              👑 Aarav Sharma (Admin)
+              👑 Admin (admin123)
             </button>
             <button
-              onClick={() => handleQuickLogin('hr@oxp.com')}
-              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors"
+              type="button"
+              onClick={() => handleQuickLogin('hr.manager@peoplepay360.internal', 'manager123')}
+              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors cursor-pointer"
             >
-              👥 Priya Patel (HR Manager)
+              👥 HR Manager (manager123)
             </button>
             <button
-              onClick={() => handleQuickLogin('payroll@oxp.com')}
-              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors"
+              type="button"
+              onClick={() => handleQuickLogin('payroll.manager@peoplepay360.internal', 'payroll123')}
+              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors cursor-pointer"
             >
-              💰 Rajesh Iyer (Payroll Admin)
+              💰 Payroll Manager (payroll123)
             </button>
             <button
-              onClick={() => handleQuickLogin('rohan@oxp.com')}
-              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors"
+              type="button"
+              onClick={() => handleQuickLogin('alex.morgan@peoplepay360.internal', 'employee123')}
+              className="p-2 border border-border rounded-sm bg-surface-muted hover:border-primary-600/50 hover:text-primary-600 text-left font-semibold text-ink-900 transition-colors cursor-pointer"
             >
-              👤 Rohan Kumar (Employee)
+              👤 Employee (employee123)
             </button>
           </div>
         </div>
