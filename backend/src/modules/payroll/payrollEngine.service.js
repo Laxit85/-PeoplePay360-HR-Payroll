@@ -4,7 +4,7 @@
 // contractResolver/attendanceService/leaveBalanceService exist (see Day 1 note
 // in the team-division doc).
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 /**
  * Runs a salary structure's ordered rules against a computation context.

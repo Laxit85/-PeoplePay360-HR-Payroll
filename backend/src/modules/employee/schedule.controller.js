@@ -2,7 +2,7 @@
 // Owner: Person 2
 // Note: total_weekly_hours is a MySQL GENERATED column — never write to it directly.
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 async function getByEmployee(req, res, next) {
   try {

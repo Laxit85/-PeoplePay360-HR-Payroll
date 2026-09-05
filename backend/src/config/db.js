@@ -1,6 +1,7 @@
 const mysql = require('mysql2/promise');
+require('dotenv').config();
 
-// Create a connection pool for XAMPP MySQL
+// Create a connection pool for XAMPP MySQL (Vasudev DB Config)
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -9,7 +10,8 @@ const pool = mysql.createPool({
   port: parseInt(process.env.DB_PORT || '3306', 10),
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  namedPlaceholders: true
 });
 
 const testDBConnection = async () => {
@@ -23,7 +25,6 @@ const testDBConnection = async () => {
   }
 };
 
-module.exports = {
-  pool,
-  testDBConnection
-};
+module.exports = pool;
+module.exports.pool = pool;
+module.exports.testDBConnection = testDBConnection;

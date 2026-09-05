@@ -2,7 +2,7 @@
 // Owner: Person 2
 // Enforces: an employee can never have two ACTIVE contracts with overlapping dates.
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 async function findOverlapping(connection, { employeeId, startDate, endDate, excludeId = null }) {
   const params = { employeeId, startDate, endDate: endDate || '9999-12-31' };

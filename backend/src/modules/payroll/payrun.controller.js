@@ -4,7 +4,7 @@
 // (compute) does, inside a transaction, and never crashes the whole batch
 // if one employee fails.
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 const payrollEngine = require('./payrollEngine.service');
 const contractResolver = require('../employee/contractResolver.service');
 const attendanceService = require('../attendance/attendance.service');

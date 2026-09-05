@@ -5,8 +5,8 @@
 // Usage: npm run seed
 
 require('dotenv').config();
-const bcrypt = require('bcrypt');
-const pool = require('./pool');
+const bcrypt = require('bcryptjs');
+const pool = require('../config/db');
 
 const USERS = [
   { email: 'admin@peoplepay360.test', password: 'password123', role: 'admin' },

@@ -1,7 +1,7 @@
 // src/modules/timeoff/timeoffType.controller.js
 // Owner: Person 3
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 async function list(req, res, next) {
   try {

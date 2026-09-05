@@ -3,7 +3,7 @@
 // Read-only aggregation layer. No writes, no new tables — just queries
 // across employees/attendances/time_off_requests/payslips.
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 function buildFilters({ department, employeeType }) {
   const conditions = [];

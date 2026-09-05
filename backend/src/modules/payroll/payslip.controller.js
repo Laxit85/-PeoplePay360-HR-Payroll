@@ -1,7 +1,7 @@
 // src/modules/payroll/payslip.controller.js
 // Owner: Person 4
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 const { generatePayslipPdf } = require('./pdf.service');
 const { sendBulkPayslips } = require('./email.service');
 

@@ -1,7 +1,7 @@
 // src/modules/employee/employee.controller.js
 // Owner: Person 2
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 async function list(req, res, next) {
   try {

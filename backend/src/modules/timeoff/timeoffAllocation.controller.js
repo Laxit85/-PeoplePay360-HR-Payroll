@@ -1,7 +1,7 @@
 // src/modules/timeoff/timeoffAllocation.controller.js
 // Owner: Person 3
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 async function getByEmployee(req, res, next) {
   try {

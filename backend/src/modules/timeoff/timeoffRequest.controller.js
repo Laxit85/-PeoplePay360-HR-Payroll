@@ -3,7 +3,7 @@
 // Enforces: approving a request decrements the allocation's remaining_days,
 // and a request can never be approved past the remaining balance.
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 function countDays(startDate, endDate) {
   const start = new Date(startDate);

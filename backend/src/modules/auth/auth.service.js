@@ -1,9 +1,9 @@
 // src/modules/auth/auth.service.js
 // Owner: Person 1
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 async function findUserByEmail(email) {
   const [rows] = await pool.query('SELECT * FROM users WHERE email = :email', { email });

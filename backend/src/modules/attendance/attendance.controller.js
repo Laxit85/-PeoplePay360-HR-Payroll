@@ -1,7 +1,7 @@
 // src/modules/attendance/attendance.controller.js
 // Owner: Person 3
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 const DAY_COLUMNS = [
   'sunday_hours', 'monday_hours', 'tuesday_hours', 'wednesday_hours',

@@ -2,7 +2,7 @@
 // Owner: Person 3
 // ⭐ SHARED — Person 4 (Payroll) calls this directly.
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 /**
  * getApprovedLeave(employeeId, periodStart, periodEnd)

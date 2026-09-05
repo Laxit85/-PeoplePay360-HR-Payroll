@@ -1,7 +1,7 @@
 // src/modules/payroll/salaryRule.controller.js
 // Owner: Person 4
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 async function list(req, res, next) {
   try {

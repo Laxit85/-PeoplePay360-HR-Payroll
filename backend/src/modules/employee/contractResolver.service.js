@@ -3,7 +3,7 @@
 // ⭐ SHARED — Person 4 (Payroll) calls this directly. Do not change this
 // signature without posting in the group chat first.
 
-const pool = require('../../db/pool');
+const pool = require('../../config/db');
 
 /**
  * resolveContractForPeriod(employeeId, periodStart, periodEnd)
