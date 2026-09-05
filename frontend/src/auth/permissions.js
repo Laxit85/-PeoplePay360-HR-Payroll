@@ -1,15 +1,15 @@
 // Flat role capability map according to §3 of Frontend Reference + Departments Module
 
 export const ROLES = {
-  EMPLOYEE: 'Employee',
-  TIMEOFF_USER: 'Time Off User',
-  TIMEOFF_ADMIN: 'Time Off Admin',
-  PAYROLL_USER: 'Payroll User',
-  PAYROLL_ADMIN: 'Payroll Admin',
-  HR_MANAGER: 'Hr Manager',
-  HR_PAYROLL_USER: 'Hr Payroll User',
-  HR_PAYROLL_ADMIN: 'Hr Payroll Admin',
-  ADMIN: 'Admin',
+  EMPLOYEE: 'EMPLOYEE',
+  TIMEOFF_USER: 'TIMEOFF_USER',
+  TIMEOFF_ADMIN: 'TIMEOFF_ADMIN',
+  PAYROLL_USER: 'PAYROLL_USER',
+  PAYROLL_ADMIN: 'PAYROLL_ADMIN',
+  HR_MANAGER: 'HR_MANAGER',
+  HR_PAYROLL_USER: 'HR_PAYROLL_USER',
+  HR_PAYROLL_ADMIN: 'HR_PAYROLL_ADMIN',
+  ADMIN: 'ADMIN',
 };
 
 const PERMISSIONS = {
@@ -240,16 +240,26 @@ const PERMISSIONS = {
   },
 };
 
+// Also support legacy TitleCase aliases
+PERMISSIONS['Admin'] = PERMISSIONS[ROLES.ADMIN];
+PERMISSIONS['Hr Manager'] = PERMISSIONS[ROLES.HR_MANAGER];
+PERMISSIONS['Employee'] = PERMISSIONS[ROLES.EMPLOYEE];
+
 export function hasPermission(userRole, capability) {
-  if (!userRole || !PERMISSIONS[userRole]) return false;
-  const val = PERMISSIONS[userRole][capability];
+  if (!userRole) return false;
+  const roleKey = String(userRole).toUpperCase();
+  if (roleKey === 'ADMIN') return true;
+  const rolePerms = PERMISSIONS[userRole] || PERMISSIONS[roleKey];
+  if (!rolePerms) return false;
+  const val = rolePerms[capability];
   if (val === undefined) return false;
   return val;
 }
 
 export function canAccessModule(userRole, moduleName) {
   if (!userRole) return false;
-  if (userRole === ROLES.ADMIN) return true;
+  const roleKey = String(userRole).toUpperCase();
+  if (roleKey === 'ADMIN' || roleKey === 'ADMINISTRATOR') return true;
 
   switch (moduleName) {
     case 'employees':
