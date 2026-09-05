@@ -257,7 +257,7 @@ export function DepartmentModal({ isOpen, onClose, initialTab = 'list' }) {
               {filteredDepartments.map((dept) => (
                 <div
                   key={dept.id}
-                  className="p-3 bg-surface border border-border rounded-sm hover:border-primary-600/40 transition-colors flex items-center justify-between gap-3 shadow-card"
+                  className="p-3.5 glass-panel rounded-sm hover:border-primary-600/60 hover:scale-[1.01] transition-all flex items-center justify-between gap-3 shadow-3d"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-sm bg-primary-600/10 text-primary-600 font-bold text-xs flex items-center justify-center border border-primary-600/20 shrink-0">
