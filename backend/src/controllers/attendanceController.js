@@ -176,3 +176,52 @@ exports.deleteAttendance = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// POST /api/attendance/clock (Toggle check-in/out)
+exports.clock = async (req, res) => {
+  try {
+    let employeeId = req.body.employee_id;
+    if (!employeeId && req.user) {
+      const [empRows] = await pool.execute('SELECT id FROM employees WHERE user_id = ? LIMIT 1', [req.user.id]);
+      if (empRows.length > 0) employeeId = empRows[0].id;
+    }
+    if (!employeeId) employeeId = 1;
+
+    const [open] = await pool.execute(
+      'SELECT id FROM attendances WHERE employee_id = ? AND check_out IS NULL',
+      [employeeId]
+    );
+
+    req.body.employee_id = employeeId;
+    if (open.length > 0) {
+      return exports.checkOut(req, res);
+    } else {
+      return exports.checkIn(req, res);
+    }
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/attendance/stats
+exports.getAttendanceStats = async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const [[{ total_present }]] = await pool.execute(
+      'SELECT COUNT(DISTINCT employee_id) AS total_present FROM attendances WHERE attendance_date = ?',
+      [today]
+    );
+    const [[{ total_employees }]] = await pool.execute('SELECT COUNT(*) AS total_employees FROM employees WHERE employment_status = "ACTIVE"');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        presentToday: total_present,
+        totalActiveEmployees: total_employees,
+        attendanceRate: total_employees > 0 ? Math.round((total_present / total_employees) * 100) : 0
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

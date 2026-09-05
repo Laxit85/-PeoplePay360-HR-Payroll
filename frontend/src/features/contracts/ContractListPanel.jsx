@@ -5,7 +5,7 @@ import {
   getContractsApi,
   createContractApi,
   updateContractApi,
-  getWorkShiftsApi,
+  getSchedulesApi,
   getSalaryStructuresApi,
   getEmployeeByIdApi,
 } from '../../api';
@@ -43,14 +43,21 @@ export function ContractListPanel() {
   const [errorMessage, setErrorMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const DEFAULT_SCHEDULES = [
+    { id: 1, name: 'Standard 40h (Mon-Fri 09:00-17:00)', total_weekly_hours: 40 }
+  ];
+  const DEFAULT_STRUCTURES = [
+    { id: 1, name: 'Standard Corporate Salaried Structure', code: 'STD_CORP_SAL' }
+  ];
+
   const fetchData = async () => {
     setLoading(true);
     try {
       const [cRes, sRes, stRes, empRes] = await Promise.all([
-        getContractsApi({ employee_id: id }),
-        getWorkShiftsApi(),
-        getSalaryStructuresApi(),
-        id ? getEmployeeByIdApi(id) : Promise.resolve(null),
+        getContractsApi({ employee_id: id }).catch(err => { console.error('Contracts load error:', err); return []; }),
+        getSchedulesApi().catch(err => { console.error('Schedules load error:', err); return []; }),
+        getSalaryStructuresApi().catch(err => { console.error('Salary structures load error:', err); return []; }),
+        id ? getEmployeeByIdApi(id).catch(err => { console.error('Employee load error:', err); return null; }) : Promise.resolve(null),
       ]);
 
       const rawContracts = Array.isArray(cRes?.data) ? cRes.data : (Array.isArray(cRes) ? cRes : []);
@@ -62,8 +69,8 @@ export function ContractListPanel() {
         id: c.id,
         employeeId: c.employee_id,
         employeeName: c.first_name ? `${c.first_name} ${c.last_name || ''}`.trim() : 'Employee',
-        jobPosition: c.job_position_title || c.reference_name || 'Software Engineer',
-        referenceName: c.reference_name,
+        jobPosition: c.reference_name || c.job_position_title || 'Software Engineer',
+        referenceName: c.reference_name || c.job_position_title || 'Software Engineer',
         startDate: c.start_date,
         endDate: c.end_date,
         wage: parseFloat(c.wage || 0),
@@ -72,9 +79,13 @@ export function ContractListPanel() {
         status: c.status === 'ACTIVE' ? 'Running' : c.status
       }));
 
+      const activeSchedules = rawSchedules.length > 0 ? rawSchedules : DEFAULT_SCHEDULES;
+      const activeStructures = rawStructs.length > 0 ? rawStructs : DEFAULT_STRUCTURES;
+
       setContracts(formattedContracts);
-      setSchedules(rawSchedules);
-      setStructures(rawStructs);
+      setSchedules(activeSchedules);
+      setStructures(activeStructures);
+
       if (empData) {
         setEmployee({
           id: empData.id,
@@ -83,11 +94,13 @@ export function ContractListPanel() {
         });
       }
 
-      if (rawSchedules.length) setWorkingScheduleId(rawSchedules[0].id);
-      if (rawStructs.length) setSalaryStructureId(rawStructs[0].id);
+      setWorkingScheduleId(String(activeSchedules[0]?.id || '1'));
+      setSalaryStructureId(String(activeStructures[0]?.id || '1'));
       if (empData) setJobPosition(empData.job_position_title || empData.job_title || 'Software Engineer');
     } catch (err) {
       console.error('Failed to load contract details', err);
+      setSchedules(DEFAULT_SCHEDULES);
+      setStructures(DEFAULT_STRUCTURES);
     } finally {
       setLoading(false);
     }
@@ -100,9 +113,11 @@ export function ContractListPanel() {
   const handleOpenNew = () => {
     setSelectedContract(null);
     setJobPosition(employee?.jobTitle || 'Software Engineer');
+    setStartDate('2026-01-01');
+    setEndDate('2026-12-31');
     setWage(7500);
-    if (schedules.length > 0 && !workingScheduleId) setWorkingScheduleId(schedules[0].id);
-    if (structures.length > 0 && !salaryStructureId) setSalaryStructureId(structures[0].id);
+    if (schedules.length > 0) setWorkingScheduleId(String(schedules[0].id));
+    if (structures.length > 0) setSalaryStructureId(String(structures[0].id));
     setStatus('ACTIVE');
     setErrorMessage('');
     setIsModalOpen(true);
@@ -110,12 +125,12 @@ export function ContractListPanel() {
 
   const handleOpenEdit = (c) => {
     setSelectedContract(c);
-    setJobPosition(c.jobPosition);
+    setJobPosition(c.referenceName || c.jobPosition || '');
     setStartDate(c.startDate ? c.startDate.substring(0, 10) : '2026-01-01');
     setEndDate(c.endDate ? c.endDate.substring(0, 10) : '2026-12-31');
     setWage(c.wage);
-    setWorkingScheduleId(c.workingScheduleId || (schedules[0]?.id || '1'));
-    setSalaryStructureId(c.salaryStructureId || (structures[0]?.id || '1'));
+    setWorkingScheduleId(c.workingScheduleId ? String(c.workingScheduleId) : (schedules[0]?.id ? String(schedules[0].id) : '1'));
+    setSalaryStructureId(c.salaryStructureId ? String(c.salaryStructureId) : (structures[0]?.id ? String(structures[0].id) : '1'));
     setStatus(c.status === 'Running' ? 'ACTIVE' : c.status);
     setErrorMessage('');
     setIsModalOpen(true);
@@ -131,10 +146,11 @@ export function ContractListPanel() {
         employee_id: targetEmpId,
         reference_name: jobPosition || 'Employment Contract',
         start_date: startDate,
-        end_date: endDate,
-        wage: Number(wage),
-        working_schedule_id: workingScheduleId || (schedules[0]?.id || null),
-        salary_structure_id: salaryStructureId || (structures[0]?.id || 1),
+        end_date: endDate || null,
+        wage: Number(wage) || 0,
+        wage_type: 'MONTHLY',
+        working_schedule_id: workingScheduleId ? Number(workingScheduleId) : (schedules[0]?.id ? Number(schedules[0].id) : null),
+        salary_structure_id: salaryStructureId ? Number(salaryStructureId) : (structures[0]?.id ? Number(structures[0].id) : 1),
         status: status === 'Running' ? 'ACTIVE' : status
       };
 
@@ -145,8 +161,9 @@ export function ContractListPanel() {
       }
 
       setIsModalOpen(false);
-      fetchData();
+      await fetchData();
     } catch (err) {
+      console.error('Failed to save contract:', err);
       setErrorMessage(err.response?.data?.message || err.message || 'Validation error saving contract');
     } finally {
       setSaving(false);
@@ -230,8 +247,9 @@ export function ContractListPanel() {
         <form onSubmit={handleSave} className="flex flex-col gap-4">
           <Input
             label="Job Position Title"
-            value={jobPosition}
+            value={jobPosition || ''}
             onChange={(e) => setJobPosition(e.target.value)}
+            placeholder="e.g. Lead Software Architect"
             required
           />
 
@@ -239,14 +257,14 @@ export function ContractListPanel() {
             <Input
               label="Start Date"
               type="date"
-              value={startDate}
+              value={startDate || ''}
               onChange={(e) => setStartDate(e.target.value)}
               required
             />
             <Input
               label="End Date"
               type="date"
-              value={endDate}
+              value={endDate || ''}
               onChange={(e) => setEndDate(e.target.value)}
               required
             />
@@ -255,18 +273,18 @@ export function ContractListPanel() {
           <Input
             label="Monthly Wage ($ USD)"
             type="number"
-            value={wage}
+            value={wage ?? ''}
             onChange={(e) => setWage(e.target.value)}
             required
           />
 
           <Select
             label="Working Schedule"
-            value={workingScheduleId}
+            value={String(workingScheduleId || '')}
             onChange={(e) => setWorkingScheduleId(e.target.value)}
           >
             {schedules.map((s) => (
-              <option key={s.id} value={s.id}>
+              <option key={s.id} value={String(s.id)} className="bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 py-1">
                 {s.name} ({s.total_weekly_hours || s.hoursPerWeek || 40}h/wk)
               </option>
             ))}
@@ -274,11 +292,11 @@ export function ContractListPanel() {
 
           <Select
             label="Salary Structure"
-            value={salaryStructureId}
+            value={String(salaryStructureId || '')}
             onChange={(e) => setSalaryStructureId(e.target.value)}
           >
             {structures.map((s) => (
-              <option key={s.id} value={s.id}>
+              <option key={s.id} value={String(s.id)} className="bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 py-1">
                 {s.name} ({s.code || 'STD'})
               </option>
             ))}
@@ -289,10 +307,10 @@ export function ContractListPanel() {
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            <option value="Running">Running (Active for Payroll)</option>
-            <option value="Draft">Draft</option>
-            <option value="Expired">Expired</option>
-            <option value="Terminated">Terminated</option>
+            <option value="Running" className="bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 py-1">Running (Active for Payroll)</option>
+            <option value="Draft" className="bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 py-1">Draft</option>
+            <option value="Expired" className="bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 py-1">Expired</option>
+            <option value="Terminated" className="bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100 py-1">Terminated</option>
           </Select>
         </form>
       </Modal>

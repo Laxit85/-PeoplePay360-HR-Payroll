@@ -31,9 +31,10 @@ export function AttendanceListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const targetEmpId = id || (user?.role === 'EMPLOYEE' ? (user?.employeeId || 1) : undefined);
       const [listRes, empRes] = await Promise.all([
-        getAttendanceLogsApi({ employee_id: id }),
-        id ? getEmployeeByIdApi(id) : Promise.resolve(null),
+        getAttendanceLogsApi(targetEmpId ? { employee_id: targetEmpId } : {}),
+        targetEmpId ? getEmployeeByIdApi(targetEmpId) : Promise.resolve(null),
       ]);
 
       const rawList = listRes?.data || listRes || [];
@@ -59,7 +60,7 @@ export function AttendanceListPage() {
 
   useEffect(() => {
     fetchData();
-  }, [id]);
+  }, [id, user?.employeeId, user?.role]);
 
   const handleOpenCorrection = (record) => {
     setSelectedRecord(record);

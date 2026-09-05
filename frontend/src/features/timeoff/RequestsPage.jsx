@@ -42,10 +42,11 @@ export function RequestsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const effectiveEmpId = user?.role === 'EMPLOYEE' ? (user.employeeId || 1) : empFilter;
       const [rRes, tRes, eRes] = await Promise.all([
-        getTimeOffRequestsApi({ employee_id: empFilter }),
+        getTimeOffRequestsApi(effectiveEmpId ? { employee_id: effectiveEmpId } : {}),
         getTimeOffTypesApi(),
-        getEmployeesApi(),
+        user?.role === 'EMPLOYEE' ? Promise.resolve([]) : getEmployeesApi(),
       ]);
 
       const rawReqs = rRes?.data || rRes || [];
@@ -83,7 +84,7 @@ export function RequestsPage() {
 
   useEffect(() => {
     fetchData();
-  }, [empFilter]);
+  }, [empFilter, user?.employeeId, user?.role]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -197,17 +198,19 @@ export function RequestsPage() {
         )}
 
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
-          <Select
-            label="Employee"
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value)}
-          >
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name} ({emp.department})
-              </option>
-            ))}
-          </Select>
+          {user?.role !== 'EMPLOYEE' && (
+            <Select
+              label="Employee"
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
+            >
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} ({emp.department || 'General'})
+                </option>
+              ))}
+            </Select>
+          )}
 
           <Select
             label="Time Off Type"

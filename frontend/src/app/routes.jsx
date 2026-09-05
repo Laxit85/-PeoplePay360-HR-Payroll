@@ -21,6 +21,16 @@ import { StructureListPage } from '../features/payroll/structures/StructureListP
 import { RuleListPage } from '../features/payroll/rules/RuleListPage';
 import { DashboardPage } from '../features/payroll/dashboard/DashboardPage';
 
+import { useAuth } from '../auth/useAuth';
+
+function HomeRedirect() {
+  const { user } = useAuth();
+  if (user?.role === 'EMPLOYEE') {
+    return <Navigate to="/attendance" replace />;
+  }
+  return <Navigate to="/employees" replace />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -35,7 +45,7 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<Navigate to="/employees" replace />} />
+        <Route path="/" element={<HomeRedirect />} />
 
         {/* Module 0: User Management */}
         <Route
@@ -59,7 +69,7 @@ export function AppRoutes() {
         <Route
           path="/employees/:id"
           element={
-            <ProtectedRoute module="employees">
+            <ProtectedRoute module="employees" allowSelf={true}>
               <EmployeeFormPage />
             </ProtectedRoute>
           }
@@ -67,7 +77,7 @@ export function AppRoutes() {
         <Route
           path="/employees/:id/contracts"
           element={
-            <ProtectedRoute module="contracts">
+            <ProtectedRoute module="contracts" allowSelf={true}>
               <ContractListPanel />
             </ProtectedRoute>
           }
@@ -75,7 +85,7 @@ export function AppRoutes() {
         <Route
           path="/schedules"
           element={
-            <ProtectedRoute module="attendance">
+            <ProtectedRoute module="schedules">
               <ScheduleListPage />
             </ProtectedRoute>
           }
@@ -179,7 +189,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/employees" replace />} />
+      <Route path="*" element={<HomeRedirect />} />
     </Routes>
   );
 }

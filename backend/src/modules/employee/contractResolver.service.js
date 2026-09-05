@@ -3,7 +3,7 @@
 // ⭐ SHARED — Person 4 (Payroll) calls this directly. Do not change this
 // signature without posting in the group chat first.
 
-const pool = require('../../config/db');
+const { pool } = require('../../config/db');
 
 /**
  * resolveContractForPeriod(employeeId, periodStart, periodEnd)
@@ -15,7 +15,7 @@ async function resolveContractForPeriod(employeeId, periodStart, periodEnd) {
   const [rows] = await pool.query(
     `SELECT * FROM contracts
      WHERE employee_id = :employeeId
-       AND is_active = TRUE
+       AND status IN ('ACTIVE', 'Running')
        AND (end_date IS NULL OR end_date >= :periodStart)
        AND start_date <= :periodEnd`,
     { employeeId, periodStart, periodEnd }

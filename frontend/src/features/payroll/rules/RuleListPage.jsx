@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Sliders } from 'lucide-react';
-import { getSalaryRules, saveSalaryRule } from '../../../mockApi/apiHandlers';
+import { getSalaryRulesApi, saveSalaryRuleApi } from '../../../api';
 import { DataTable } from '../../../components/data/DataTable';
 import { StatusBadge } from '../../../components/data/StatusBadge';
 import { Button } from '../../../components/ui/Button';
@@ -31,8 +31,11 @@ export function RuleListPage() {
   const fetchRules = async () => {
     setLoading(true);
     try {
-      const list = await getSalaryRules();
+      const res = await getSalaryRulesApi();
+      const list = res?.data || res || [];
       setRules(list);
+    } catch (err) {
+      console.error('Failed to fetch salary rules', err);
     } finally {
       setLoading(false);
     }
@@ -74,7 +77,7 @@ export function RuleListPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await saveSalaryRule({
+      await saveSalaryRuleApi({
         id: selectedRule?.id,
         name,
         code: code.toUpperCase(),

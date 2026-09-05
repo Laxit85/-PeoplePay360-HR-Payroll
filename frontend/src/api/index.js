@@ -11,6 +11,17 @@ export const getMeApi = async () => {
   return response.data;
 };
 
+// --- USERS API (ADMIN) ---
+export const getUsersApi = async () => {
+  const response = await axiosInstance.get('/auth/users');
+  return response.data;
+};
+
+export const createUserApi = async (userData) => {
+  const response = await axiosInstance.post('/auth/users', userData);
+  return response.data;
+};
+
 // --- EMPLOYEES API ---
 export const getEmployeesApi = async (params = {}) => {
   const response = await axiosInstance.get('/employees', { params });
@@ -45,6 +56,16 @@ export const getDepartmentsApi = async () => {
 
 export const createDepartmentApi = async (deptData) => {
   const response = await axiosInstance.post('/org/departments', deptData);
+  return response.data;
+};
+
+export const updateDepartmentApi = async (id, deptData) => {
+  const response = await axiosInstance.put(`/org/departments/${id}`, deptData);
+  return response.data;
+};
+
+export const deleteDepartmentApi = async (id) => {
+  const response = await axiosInstance.delete(`/org/departments/${id}`);
   return response.data;
 };
 
@@ -100,8 +121,23 @@ export const getTimeOffTypesApi = async () => {
   return response.data;
 };
 
+export const createTimeOffTypeApi = async (typeData) => {
+  const response = await axiosInstance.post('/time-off/types', typeData);
+  return response.data;
+};
+
 export const getTimeOffAllocationsApi = async (params = {}) => {
   const response = await axiosInstance.get('/time-off/allocations', { params });
+  return response.data;
+};
+
+export const createTimeOffAllocationApi = async (allocData) => {
+  const response = await axiosInstance.post('/time-off/allocations', allocData);
+  return response.data;
+};
+
+export const approveTimeOffAllocationApi = async (id) => {
+  const response = await axiosInstance.put(`/time-off/allocations/${id}/approve`);
   return response.data;
 };
 
@@ -116,8 +152,18 @@ export const createScheduleApi = async (scheduleData) => {
   return response.data;
 };
 
+export const updateScheduleApi = async (id, scheduleData) => {
+  const response = await axiosInstance.put(`/schedules/${id}`, scheduleData);
+  return response.data;
+};
+
+export const deleteScheduleApi = async (id) => {
+  const response = await axiosInstance.delete(`/schedules/${id}`);
+  return response.data;
+};
+
 export const getWorkShiftsApi = async () => {
-  const response = await axiosInstance.get('/schedules/shifts');
+  const response = await axiosInstance.get('/schedules');
   return response.data;
 };
 
@@ -132,13 +178,43 @@ export const getPayrunByIdApi = async (id) => {
   return response.data;
 };
 
+export const getEligibleEmployeesApi = async (params = {}) => {
+  const response = await axiosInstance.get('/payruns/eligible-employees', { params });
+  return response.data;
+};
+
 export const createPayrunApi = async (payrunData) => {
   const response = await axiosInstance.post('/payruns', payrunData);
   return response.data;
 };
 
+export const computePayrunApi = async (id) => {
+  const response = await axiosInstance.post(`/payruns/${id}/compute`);
+  return response.data;
+};
+
 export const processPayrunApi = async (id) => {
   const response = await axiosInstance.post(`/payruns/${id}/process`);
+  return response.data;
+};
+
+export const validatePayrunApi = async (id) => {
+  const response = await axiosInstance.post(`/payruns/${id}/validate`);
+  return response.data;
+};
+
+export const markPayrunPaidApi = async (id) => {
+  const response = await axiosInstance.post(`/payruns/${id}/mark-paid`);
+  return response.data;
+};
+
+export const sendPayslipsApi = async (id) => {
+  const response = await axiosInstance.post(`/payruns/${id}/send-payslips`);
+  return response.data;
+};
+
+export const getPayslipByIdApi = async (id) => {
+  const response = await axiosInstance.get(`/payruns/payslips/${id}`);
   return response.data;
 };
 
@@ -149,6 +225,16 @@ export const getSalaryStructuresApi = async () => {
 
 export const createSalaryStructureApi = async (structureData) => {
   const response = await axiosInstance.post('/salary-structures', structureData);
+  return response.data;
+};
+
+export const getSalaryRulesApi = async () => {
+  const response = await axiosInstance.get('/salary-structures/rules');
+  return response.data;
+};
+
+export const saveSalaryRuleApi = async (ruleData) => {
+  const response = await axiosInstance.post('/salary-structures/rules', ruleData);
   return response.data;
 };
 

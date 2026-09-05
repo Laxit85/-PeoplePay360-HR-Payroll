@@ -23,15 +23,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Mount API Routes
+const { protect } = require('./middleware/auth');
+const { getPayslipById } = require('./controllers/payrunController');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/org', orgRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/contracts', contractRoutes);
 app.use('/api/working-schedules', scheduleRoutes);
+app.use('/api/schedules', scheduleRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/time-off', timeOffRoutes);
 app.use('/api/salary-structures', salaryStructureRoutes);
 app.use('/api/payruns', payrunRoutes);
+app.get('/api/payslips/:id', protect, getPayslipById);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Health Check

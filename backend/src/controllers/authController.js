@@ -128,3 +128,93 @@ exports.getMe = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// GET /api/auth/users
+exports.getUsers = async (req, res) => {
+  try {
+    const [users] = await pool.execute(`
+      SELECT 
+        u.id,
+        u.email,
+        u.is_active,
+        r.name AS role,
+        e.id AS employee_id,
+        CONCAT(e.first_name, ' ', e.last_name) AS employee_name
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      LEFT JOIN employees e ON e.user_id = u.id
+      ORDER BY u.id ASC
+    `);
+
+    const formatted = users.map(u => ({
+      id: u.id,
+      name: u.employee_name || u.email.split('@')[0],
+      email: u.email,
+      role: u.role,
+      status: u.is_active ? 'Active' : 'Inactive',
+      employeeId: u.employee_id || null
+    }));
+
+    res.status(200).json({ success: true, count: formatted.length, data: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/auth/users
+exports.createUser = async (req, res) => {
+  try {
+    const { email, password, role, role_id, employeeId, employee_id, status } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    // Check if user already exists
+    const [existing] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'User already exists with this email' });
+    }
+
+    // Resolve role_id
+    let assignedRoleId = role_id;
+    if (!assignedRoleId && role) {
+      const [roleRows] = await pool.execute('SELECT id FROM roles WHERE name = ?', [role]);
+      if (roleRows.length > 0) assignedRoleId = roleRows[0].id;
+    }
+    if (!assignedRoleId) assignedRoleId = 5; // Default EMPLOYEE
+
+    const pwdToHash = password || 'Password@123';
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(pwdToHash, salt);
+    const isActive = status === 'Inactive' ? 0 : 1;
+
+    const [result] = await pool.execute(
+      'INSERT INTO users (email, password_hash, role_id, is_active) VALUES (?, ?, ?, ?)',
+      [email, passwordHash, assignedRoleId, isActive]
+    );
+
+    const newUserId = result.insertId;
+
+    // Link to employee if employeeId provided
+    const targetEmpId = employeeId || employee_id;
+    if (targetEmpId) {
+      const cleanEmpId = String(targetEmpId).replace(/^emp-/i, '');
+      await pool.execute('UPDATE employees SET user_id = ? WHERE id = ?', [newUserId, cleanEmpId]);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      data: {
+        id: newUserId,
+        email,
+        role: role || 'EMPLOYEE',
+        status: isActive ? 'Active' : 'Inactive',
+        employeeId: targetEmpId || null
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};

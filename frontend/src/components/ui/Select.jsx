@@ -18,7 +18,7 @@ export const Select = React.forwardRef(
         >
           {options.length > 0
             ? options.map((opt) => (
-                <option key={opt.value} value={opt.value} className="bg-surface text-ink-900">
+                <option key={opt.value} value={opt.value} className="bg-slate-900 text-slate-100 dark:bg-slate-900 dark:text-slate-100">
                   {opt.label}
                 </option>
               ))

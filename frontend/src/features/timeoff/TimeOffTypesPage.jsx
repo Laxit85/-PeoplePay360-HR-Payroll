@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings2 } from 'lucide-react';
-import { getTimeOffTypes } from '../../mockApi/apiHandlers';
+import { getTimeOffTypesApi } from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 
@@ -9,7 +9,23 @@ export function TimeOffTypesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getTimeOffTypes().then(setTypes).finally(() => setLoading(false));
+    getTimeOffTypesApi()
+      .then((res) => {
+        const rows = res?.data || res || [];
+        setTypes(
+          rows.map((t) => ({
+            ...t,
+            id: t.id,
+            name: t.name,
+            code: t.code,
+            unit: t.unit || 'DAYS',
+            requiresApproval: true,
+            requiresAllocation: Boolean(t.requires_allocation ?? 1),
+          }))
+        );
+      })
+      .catch((err) => console.error('Failed to fetch time off types', err))
+      .finally(() => setLoading(false));
   }, []);
 
   const columns = [

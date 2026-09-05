@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { getPayslipById } from '../../../mockApi/apiHandlers';
+import { getPayslipByIdApi } from '../../../api';
 import { CurrencyCell } from '../../../components/data/CurrencyCell';
 import { StatusBadge } from '../../../components/data/StatusBadge';
 import { Button } from '../../../components/ui/Button';
@@ -15,8 +15,8 @@ export function PayslipDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getPayslipById(id)
-      .then(setPayslip)
+    getPayslipByIdApi(id)
+      .then((res) => setPayslip(res?.data || res))
       .catch(() => navigate('/payroll/payruns'))
       .finally(() => setLoading(false));
   }, [id]);

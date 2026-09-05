@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Calendar, Clock } from 'lucide-react';
-import { getMockSchedules, saveMockSchedule } from '../../mockApi/apiHandlers';
+import { getSchedulesApi, createScheduleApi, updateScheduleApi } from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -28,8 +28,11 @@ export function ScheduleListPage() {
   const fetchSchedules = async () => {
     setLoading(true);
     try {
-      const list = await getMockSchedules();
+      const res = await getSchedulesApi();
+      const list = res?.data || res || [];
       setSchedules(list);
+    } catch (err) {
+      console.error('Failed to fetch schedules', err);
     } finally {
       setLoading(false);
     }
@@ -52,11 +55,11 @@ export function ScheduleListPage() {
   const handleOpenEdit = (s) => {
     setSelectedSchedule(s);
     setName(s.name);
-    setCalendarType(s.calendarType);
-    setDaysPerWeek(s.daysPerWeek);
-    setHoursPerWeek(s.hoursPerWeek);
-    setCompany(s.company);
-    setStatus(s.status);
+    setCalendarType(s.calendarType || 'Standard 40h');
+    setDaysPerWeek(s.daysPerWeek || 5);
+    setHoursPerWeek(s.hoursPerWeek || 40);
+    setCompany(s.company || 'OXP Global Inc.');
+    setStatus(s.status || 'Active');
     setIsModalOpen(true);
   };
 
@@ -64,17 +67,24 @@ export function ScheduleListPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await saveMockSchedule({
-        id: selectedSchedule?.id,
+      const payload = {
         name,
         calendarType,
         daysPerWeek: Number(daysPerWeek),
         hoursPerWeek: Number(hoursPerWeek),
         company,
         status,
-      });
+      };
+      if (selectedSchedule?.id) {
+        await updateScheduleApi(selectedSchedule.id, payload);
+      } else {
+        await createScheduleApi(payload);
+      }
       setIsModalOpen(false);
       fetchSchedules();
+    } catch (err) {
+      console.error('Failed to save schedule', err);
+      alert('Failed to save working schedule');
     } finally {
       setSaving(false);
     }

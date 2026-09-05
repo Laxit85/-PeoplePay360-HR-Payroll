@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layers } from 'lucide-react';
-import { getSalaryStructures } from '../../../mockApi/apiHandlers';
+import { getSalaryStructuresApi } from '../../../api';
 import { DataTable } from '../../../components/data/DataTable';
 
 export function StructureListPage() {
@@ -8,7 +8,10 @@ export function StructureListPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSalaryStructures().then(setStructures).finally(() => setLoading(false));
+    getSalaryStructuresApi()
+      .then((res) => setStructures(res?.data || res || []))
+      .catch((err) => console.error('Failed to fetch salary structures', err))
+      .finally(() => setLoading(false));
   }, []);
 
   const columns = [
@@ -20,9 +23,9 @@ export function StructureListPage() {
       render: (rules) => (
         <div className="flex flex-wrap items-center gap-1.5">
           {rules && rules.length > 0 ? (
-            rules.map((r) => (
+            rules.map((r, idx) => (
               <span
-                key={r.id}
+                key={r.id || `${r.code}-${r.sequence}` || idx}
                 className="px-2 py-0.5 rounded-pill bg-surface-muted border border-border text-xs font-semibold text-ink-900"
               >
                 {r.sequence}. {r.code} ({r.category})

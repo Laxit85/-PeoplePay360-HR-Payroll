@@ -12,7 +12,7 @@ exports.getContracts = async (req, res) => {
         e.last_name,
         e.email AS employee_email,
         d.name AS department_name,
-        jp.title AS job_position_title,
+        COALESCE(c.reference_name, jp.title, 'Software Engineer') AS job_position_title,
         ss.name AS salary_structure_name,
         ss.code AS salary_structure_code
       FROM contracts c
@@ -47,9 +47,12 @@ exports.getContracts = async (req, res) => {
 exports.getContractById = async (req, res) => {
   try {
     const [contracts] = await pool.execute(
-      `SELECT c.*, e.employee_code, e.first_name, e.last_name, ss.name AS salary_structure_name
+      `SELECT c.*, e.employee_code, e.first_name, e.last_name, 
+              COALESCE(c.reference_name, jp.title, 'Software Engineer') AS job_position_title,
+              ss.name AS salary_structure_name
        FROM contracts c
        JOIN employees e ON c.employee_id = e.id
+       LEFT JOIN job_positions jp ON e.job_position_id = jp.id
        JOIN salary_structures ss ON c.salary_structure_id = ss.id
        WHERE c.id = ?`,
       [req.params.id]
@@ -103,14 +106,35 @@ exports.createContract = async (req, res) => {
       );
     }
 
+    // Sync job position title to employees and job_positions table
+    if (reference_name && reference_name.trim()) {
+      const cleanTitle = reference_name.trim();
+      const [jRows] = await pool.execute('SELECT id FROM job_positions WHERE title = ? OR title LIKE ? LIMIT 1', [cleanTitle, `%${cleanTitle}%`]);
+      let jobId;
+      if (jRows.length > 0) {
+        jobId = jRows[0].id;
+      } else {
+        const [newJob] = await pool.execute('INSERT INTO job_positions (title, department_id) VALUES (?, 1)', [cleanTitle]);
+        jobId = newJob.insertId;
+      }
+      await pool.execute('UPDATE employees SET job_position_id = ? WHERE id = ?', [jobId, targetEmployeeId]);
+    }
+
     const [result] = await pool.execute(
       `INSERT INTO contracts (
         employee_id, reference_name, salary_structure_id, working_schedule_id,
         wage, wage_type, start_date, end_date, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        targetEmployeeId, reference_name || 'Employment Contract', salary_structure_id || 1, working_schedule_id || null,
-        wage || 0, wage_type || 'MONTHLY', start_date, end_date || null, normalizedStatus
+        targetEmployeeId,
+        reference_name || 'Employment Contract',
+        salary_structure_id !== undefined && salary_structure_id !== null ? salary_structure_id : 1,
+        working_schedule_id !== undefined ? working_schedule_id : null,
+        wage !== undefined && wage !== null ? wage : 0,
+        wage_type !== undefined && wage_type !== null ? wage_type : 'MONTHLY',
+        start_date !== undefined && start_date !== null ? start_date : '2026-01-01',
+        end_date !== undefined ? end_date : null,
+        normalizedStatus
       ]
     );
 
@@ -139,24 +163,41 @@ exports.updateContract = async (req, res) => {
       status
     } = req.body;
 
-    const normalizedStatus = status ? ((status === 'Running' || status === 'ACTIVE') ? 'ACTIVE' : status) : undefined;
+    const normalizedStatus = status ? ((status === 'Running' || status === 'ACTIVE') ? 'ACTIVE' : status) : null;
+
+    const [currentRows] = await pool.execute('SELECT employee_id FROM contracts WHERE id = ?', [contractId]);
+    if (currentRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Contract not found' });
+    }
+    const targetEmployeeId = currentRows[0].employee_id;
 
     // If changing to ACTIVE, transition other active contracts to EXPIRED
     if (normalizedStatus === 'ACTIVE') {
-      const [[current]] = await pool.execute('SELECT employee_id FROM contracts WHERE id = ?', [contractId]);
-      if (current) {
-        await pool.execute(
-          `UPDATE contracts SET status = 'EXPIRED' WHERE employee_id = ? AND status IN ('ACTIVE', 'Running') AND id != ?`,
-          [current.employee_id, contractId]
-        );
+      await pool.execute(
+        `UPDATE contracts SET status = 'EXPIRED' WHERE employee_id = ? AND status IN ('ACTIVE', 'Running') AND id != ?`,
+        [targetEmployeeId, contractId]
+      );
+    }
+
+    // Sync job position title to employees and job_positions table
+    if (reference_name && reference_name.trim()) {
+      const cleanTitle = reference_name.trim();
+      const [jRows] = await pool.execute('SELECT id FROM job_positions WHERE title = ? OR title LIKE ? LIMIT 1', [cleanTitle, `%${cleanTitle}%`]);
+      let jobId;
+      if (jRows.length > 0) {
+        jobId = jRows[0].id;
+      } else {
+        const [newJob] = await pool.execute('INSERT INTO job_positions (title, department_id) VALUES (?, 1)', [cleanTitle]);
+        jobId = newJob.insertId;
       }
+      await pool.execute('UPDATE employees SET job_position_id = ? WHERE id = ?', [jobId, targetEmployeeId]);
     }
 
     await pool.execute(
       `UPDATE contracts SET
         reference_name = COALESCE(?, reference_name),
         salary_structure_id = COALESCE(?, salary_structure_id),
-        working_schedule_id = ?,
+        working_schedule_id = COALESCE(?, working_schedule_id),
         wage = COALESCE(?, wage),
         wage_type = COALESCE(?, wage_type),
         start_date = COALESCE(?, start_date),
@@ -164,8 +205,14 @@ exports.updateContract = async (req, res) => {
         status = COALESCE(?, status)
        WHERE id = ?`,
       [
-        reference_name, salary_structure_id, working_schedule_id || null,
-        wage, wage_type, start_date, end_date || null, status,
+        reference_name !== undefined ? reference_name : null,
+        salary_structure_id !== undefined ? salary_structure_id : null,
+        working_schedule_id !== undefined ? working_schedule_id : null,
+        wage !== undefined ? wage : null,
+        wage_type !== undefined ? wage_type : null,
+        start_date !== undefined ? start_date : null,
+        end_date !== undefined ? end_date : null,
+        normalizedStatus !== undefined ? normalizedStatus : null,
         contractId
       ]
     );

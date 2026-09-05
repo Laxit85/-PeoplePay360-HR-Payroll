@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Award } from 'lucide-react';
-import { getTimeOffAllocations } from '../../mockApi/apiHandlers';
+import { getTimeOffAllocationsApi } from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { BalanceMeter } from './components/BalanceMeter';
 
+import { useAuth } from '../../auth/useAuth';
+
 export function AllocationsPage() {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const empFilter = searchParams.get('employeeId');
 
@@ -15,8 +18,27 @@ export function AllocationsPage() {
   const fetchAllocations = async () => {
     setLoading(true);
     try {
-      const list = await getTimeOffAllocations(empFilter);
+      const params = {};
+      if (user?.role === 'EMPLOYEE') {
+        if (user.employeeId) params.employee_id = user.employeeId;
+      } else if (empFilter) {
+        params.employee_id = empFilter;
+      }
+      const res = await getTimeOffAllocationsApi(params);
+      const rows = res?.data || res || [];
+      const list = rows.map((a) => ({
+        ...a,
+        id: a.id,
+        employeeName: `${a.first_name || ''} ${a.last_name || ''}`.trim() || `Employee #${a.employee_id}`,
+        typeName: a.time_off_type_name || 'Standard Leave',
+        year: a.valid_from ? new Date(a.valid_from).getFullYear() : 2026,
+        allocated: parseFloat(a.allocated_days || 0),
+        taken: parseFloat(a.taken_days || 0),
+        remaining: parseFloat(a.remaining_days || 0),
+      }));
       setAllocations(list);
+    } catch (err) {
+      console.error('Failed to fetch allocations', err);
     } finally {
       setLoading(false);
     }
@@ -24,7 +46,7 @@ export function AllocationsPage() {
 
   useEffect(() => {
     fetchAllocations();
-  }, [empFilter]);
+  }, [empFilter, user]);
 
   const columns = [
     { key: 'employeeName', header: 'Employee' },

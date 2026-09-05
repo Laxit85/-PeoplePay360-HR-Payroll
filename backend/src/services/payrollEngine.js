@@ -158,11 +158,12 @@ function evaluateSalaryRules(rules, wage, scheduledWorkDays, workedDays, unpaidL
  */
 async function scanWarnings(employee, contract, netSalary, payrunId, periodStart, periodEnd) {
   const warnings = [];
+  const empId = employee.employee_id || employee.emp_id || employee.id;
 
   // 1. Missing Bank Account
   if (!employee.bank_account_no) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'MISSING_BANK_ACCOUNT',
       severity: 'WARNING',
       message: `Employee ${employee.employee_code} (${employee.first_name} ${employee.last_name}) has no bank account number configured.`
@@ -172,7 +173,7 @@ async function scanWarnings(employee, contract, netSalary, payrunId, periodStart
   // 2. No Active Contract
   if (!contract) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'NO_ACTIVE_CONTRACT',
       severity: 'CRITICAL',
       message: `Employee ${employee.employee_code} has no active contract for the period.`
@@ -185,12 +186,12 @@ async function scanWarnings(employee, contract, netSalary, payrunId, periodStart
      WHERE employee_id = ? AND payrun_id != ? 
        AND period_start <= ? AND period_end >= ? 
        AND status IN ('VALIDATED', 'PAID')`,
-    [employee.id, payrunId, periodEnd, periodStart]
+    [empId, payrunId, periodEnd, periodStart]
   );
 
   if (existingSlips.length > 0) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'DUPLICATE_PAYSLIP',
       severity: 'CRITICAL',
       message: `Employee ${employee.employee_code} already has a validated/paid payslip for an overlapping period.`
@@ -200,7 +201,7 @@ async function scanWarnings(employee, contract, netSalary, payrunId, periodStart
   // 4. Negative Net Salary Warning
   if (netSalary < 0) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'NEGATIVE_NET_SALARY',
       severity: 'CRITICAL',
       message: `Calculated net salary for ${employee.employee_code} is negative.`

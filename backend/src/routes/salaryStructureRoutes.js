@@ -4,11 +4,18 @@ const {
   getStructureById,
   createStructure,
   addOrUpdateRule,
-  deleteRule
+  deleteRule,
+  getAllRules,
+  saveSalaryRule
 } = require('../controllers/salaryStructureController');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Rules collection routes (must be before /:id)
+router.route('/rules')
+  .get(protect, getAllRules)
+  .post(protect, authorize('HR_PAYROLL_MANAGER', 'ADMIN'), saveSalaryRule);
 
 router.route('/')
   .get(protect, getStructures)

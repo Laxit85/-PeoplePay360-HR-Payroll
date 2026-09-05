@@ -10,11 +10,12 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import {
-  getPayrunById,
-  computePayrun,
-  validatePayrun,
-  markPayrunPaid,
-} from '../../../../mockApi/apiHandlers';
+  getPayrunByIdApi,
+  computePayrunApi,
+  validatePayrunApi,
+  markPayrunPaidApi,
+  sendPayslipsApi,
+} from '../../../../api';
 import { DataTable } from '../../../../components/data/DataTable';
 import { StatusBadge } from '../../../../components/data/StatusBadge';
 import { CurrencyCell } from '../../../../components/data/CurrencyCell';
@@ -37,9 +38,10 @@ export function PayrunProcessingPage() {
   const fetchDetail = async () => {
     setLoading(true);
     try {
-      const res = await getPayrunById(id);
-      setPayrun(res);
-      setPayslips(res.payslips || []);
+      const res = await getPayrunByIdApi(id);
+      const data = res?.data || res;
+      setPayrun(data);
+      setPayslips(data?.payslips || res?.payslips || []);
     } catch {
       navigate('/payroll/payruns');
     } finally {
@@ -54,8 +56,10 @@ export function PayrunProcessingPage() {
   const handleCompute = async () => {
     setActionLoading(true);
     try {
-      await computePayrun(id);
-      fetchDetail();
+      await computePayrunApi(id);
+      await fetchDetail();
+    } catch (err) {
+      console.error('Computation failed', err);
     } finally {
       setActionLoading(false);
     }
@@ -64,8 +68,10 @@ export function PayrunProcessingPage() {
   const handleValidate = async () => {
     setActionLoading(true);
     try {
-      await validatePayrun(id);
-      fetchDetail();
+      await validatePayrunApi(id);
+      await fetchDetail();
+    } catch (err) {
+      console.error('Validation failed', err);
     } finally {
       setActionLoading(false);
     }
@@ -74,26 +80,38 @@ export function PayrunProcessingPage() {
   const handleMarkPaid = async () => {
     setActionLoading(true);
     try {
-      await markPayrunPaid(id);
-      fetchDetail();
+      await markPayrunPaidApi(id);
+      await fetchDetail();
+    } catch (err) {
+      console.error('Mark paid failed', err);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleSendPayslips = () => {
-    setEmailSent(true);
-    setTimeout(() => setEmailSent(false), 4000);
+  const handleSendPayslips = async () => {
+    setActionLoading(true);
+    try {
+      await sendPayslipsApi(id);
+      setEmailSent(true);
+      setTimeout(() => setEmailSent(false), 4000);
+      await fetchDetail();
+    } catch (err) {
+      console.error('Send payslips failed', err);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading || !payrun) {
     return <div className="p-12 text-center text-ink-600 font-medium">Loading pay run details...</div>;
   }
 
-  const isDraft = payrun.status === 'Draft';
-  const isComputed = payrun.status === 'Computed';
-  const isValidated = payrun.status === 'Validated';
-  const isPaid = payrun.status === 'Paid';
+  const statusStr = String(payrun.status || '').toUpperCase();
+  const isDraft = statusStr === 'DRAFT';
+  const isComputed = statusStr === 'COMPUTED';
+  const isValidated = statusStr === 'VALIDATED';
+  const isPaid = statusStr === 'PAID';
 
   const columns = [
     {
@@ -184,34 +202,38 @@ export function PayrunProcessingPage() {
             <Button
               variant="primary"
               icon={Play}
-              disabled={!isDraft || actionLoading}
+              disabled={!isDraft || actionLoading || !can('payroll.payruns.manage')}
               onClick={handleCompute}
+              title={!can('payroll.payruns.manage') ? 'Requires Payroll User permission' : ''}
             >
               1. Compute Salary Rules
             </Button>
             <Button
               variant="primary"
               icon={CheckCircle}
-              disabled={!isComputed || actionLoading}
+              disabled={!isComputed || actionLoading || !can('payroll.payruns.validate')}
               onClick={handleValidate}
               className="!bg-primary-600"
+              title={!can('payroll.payruns.validate') ? 'Validation requires HR Payroll Manager or Admin role' : ''}
             >
               2. Validate Batch
             </Button>
             <Button
               variant="primary"
               icon={CreditCard}
-              disabled={!isValidated || actionLoading}
+              disabled={!isValidated || actionLoading || !can('payroll.payruns.validate')}
               onClick={handleMarkPaid}
               className="!bg-money-600 hover:!bg-emerald-700 font-bold"
+              title={!can('payroll.payruns.validate') ? 'Mark Paid requires HR Payroll Manager or Admin role' : ''}
             >
               3. Mark Paid
             </Button>
             <Button
               variant="secondary"
               icon={Mail}
-              disabled={!isPaid}
+              disabled={!isPaid || !can('payroll.payruns.validate')}
               onClick={handleSendPayslips}
+              title={!can('payroll.payruns.validate') ? 'Bulk email distribution requires HR Payroll Manager or Admin role' : ''}
             >
               4. Send Payslips (Email)
             </Button>

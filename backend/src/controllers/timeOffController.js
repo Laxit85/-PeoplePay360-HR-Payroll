@@ -47,6 +47,12 @@ exports.getAllocations = async (req, res) => {
     if (employee_id) {
       query += ' AND toa.employee_id = ?';
       params.push(employee_id);
+    } else if (req.user?.role === 'EMPLOYEE') {
+      const [myEmps] = await pool.execute('SELECT id FROM employees WHERE user_id = ? LIMIT 1', [req.user.id]);
+      if (myEmps.length > 0) {
+        query += ' AND toa.employee_id = ?';
+        params.push(myEmps[0].id);
+      }
     }
     if (status) {
       query += ' AND toa.status = ?';
@@ -113,6 +119,12 @@ exports.getRequests = async (req, res) => {
     if (employee_id) {
       query += ' AND tor.employee_id = ?';
       params.push(employee_id);
+    } else if (req.user?.role === 'EMPLOYEE') {
+      const [myEmps] = await pool.execute('SELECT id FROM employees WHERE user_id = ? LIMIT 1', [req.user.id]);
+      if (myEmps.length > 0) {
+        query += ' AND tor.employee_id = ?';
+        params.push(myEmps[0].id);
+      }
     }
     if (status) {
       query += ' AND tor.status = ?';
@@ -131,10 +143,21 @@ exports.getRequests = async (req, res) => {
 // Submit request
 exports.createRequest = async (req, res) => {
   try {
-    const { employee_id, time_off_type_id, date_from, date_to, duration, reason } = req.body;
+    let empId = req.body.employee_id || req.body.employeeId;
+    if (!empId && req.user) {
+      const [myEmps] = await pool.execute('SELECT id FROM employees WHERE user_id = ? LIMIT 1', [req.user.id]);
+      if (myEmps.length > 0) empId = myEmps[0].id;
+    }
+    if (!empId) empId = 1;
+
+    const timeTypeId = req.body.time_off_type_id || req.body.timeOffTypeId || 1;
+    const fromDate = req.body.date_from || req.body.start_date || req.body.startDate || new Date().toISOString().split('T')[0];
+    const toDate = req.body.date_to || req.body.end_date || req.body.endDate || fromDate;
+    const dur = Number(req.body.duration || req.body.requested_days || req.body.numberOfDays || 1);
+    const reasonText = req.body.reason || null;
 
     // Check type requirement
-    const [[type]] = await pool.execute('SELECT * FROM time_off_types WHERE id = ?', [time_off_type_id]);
+    const [[type]] = await pool.execute('SELECT * FROM time_off_types WHERE id = ?', [timeTypeId]);
     let allocationId = null;
 
     if (type && type.requires_allocation) {
@@ -142,10 +165,10 @@ exports.createRequest = async (req, res) => {
       const [allocations] = await pool.execute(
         `SELECT id, remaining_days FROM time_off_allocations 
          WHERE employee_id = ? AND time_off_type_id = ? AND status = 'APPROVED' 
-           AND valid_from <= ? AND valid_to >= ? 
            AND remaining_days >= ?
+         ORDER BY valid_from ASC
          LIMIT 1`,
-        [employee_id, time_off_type_id, date_to, date_from, duration]
+        [empId, timeTypeId, dur]
       );
 
       if (allocations.length === 0) {
@@ -160,7 +183,7 @@ exports.createRequest = async (req, res) => {
     const [result] = await pool.execute(
       `INSERT INTO time_off_requests (employee_id, time_off_type_id, allocation_id, date_from, date_to, duration, reason, status) 
        VALUES (?, ?, ?, ?, ?, ?, ?, 'SUBMITTED')`,
-      [employee_id, time_off_type_id, allocationId, date_from, date_to, duration, reason || null]
+      [empId, timeTypeId, allocationId, fromDate, toDate, dur, reasonText]
     );
 
     res.status(201).json({ success: true, data: { id: result.insertId, ...req.body } });

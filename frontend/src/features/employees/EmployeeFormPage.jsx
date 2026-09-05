@@ -35,9 +35,16 @@ export function EmployeeFormPage() {
         ...data,
         name: data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : (data.name || 'Employee'),
         jobTitle: data.job_position_title || data.job_title || 'Team Member',
-        department: data.department_name || data.department || 'General',
+        department: data.department_name || data.department || 'Engineering',
         workEmail: data.email || data.work_email || '',
         workPhone: data.phone || data.work_phone || '',
+        employeeType: data.employee_type ? (data.employee_type.charAt(0) + data.employee_type.slice(1).toLowerCase().replace('_', '-')) : 'Full-time',
+        status: data.employment_status || 'ACTIVE',
+        bankName: data.bank_name || '',
+        accountNumber: data.bank_account_no || '',
+        ifscCode: data.bank_ifsc_or_routing || '',
+        taxId: data.tax_id_or_pan || '',
+        manager: data.manager_name || '',
         avatarUrl: data.avatar_url || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
       };
       setEmployee(formatted);
@@ -80,7 +87,14 @@ export function EmployeeFormPage() {
         last_name: lastName,
         email: formData.workEmail || formData.email,
         phone: formData.workPhone || formData.phone,
-        job_title: formData.jobTitle || formData.job_title
+        job_title: formData.jobTitle || formData.job_title,
+        department: formData.department,
+        employee_type: formData.employeeType,
+        employment_status: formData.status,
+        bank_name: formData.bankName,
+        bank_account_no: formData.accountNumber,
+        bank_ifsc_or_routing: formData.ifscCode,
+        tax_id_or_pan: formData.taxId,
       });
       await fetchEmployee();
     } catch (err) {
@@ -105,7 +119,11 @@ export function EmployeeFormPage() {
       {/* Header Bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/employees')}>
+          <Button
+            variant="secondary"
+            icon={ArrowLeft}
+            onClick={() => navigate(user?.role === 'EMPLOYEE' ? '/attendance' : '/employees')}
+          >
             Back
           </Button>
           <div>
@@ -114,7 +132,7 @@ export function EmployeeFormPage() {
           </div>
         </div>
 
-        {can('employees.update') && (
+        {(can('employees.update') || user?.role === 'EMPLOYEE') && (
           <Button variant="primary" icon={Save} onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>

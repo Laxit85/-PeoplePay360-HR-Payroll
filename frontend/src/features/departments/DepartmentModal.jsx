@@ -12,11 +12,12 @@ import {
   FolderCheck,
 } from 'lucide-react';
 import {
-  getMockDepartments,
-  saveMockDepartment,
-  deleteMockDepartment,
-  getMockEmployees,
-} from '../../mockApi/apiHandlers';
+  getDepartmentsApi,
+  createDepartmentApi,
+  updateDepartmentApi,
+  deleteDepartmentApi,
+  getEmployeesApi,
+} from '../../api';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -46,10 +47,18 @@ export function DepartmentModal({ isOpen, onClose, initialTab = 'list' }) {
   const fetchDepartments = async () => {
     setLoading(true);
     try {
-      const [deptList, empList] = await Promise.all([
-        getMockDepartments(),
-        getMockEmployees(),
+      const [deptRes, empRes] = await Promise.all([
+        getDepartmentsApi(),
+        getEmployeesApi(),
       ]);
+      const deptList = deptRes?.data || deptRes || [];
+      const empRows = empRes?.data || empRes || [];
+      const empList = empRows.map((e) => ({
+        id: e.id,
+        name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.name || `Employee #${e.id}`,
+        department: e.department_name || e.department || 'General',
+        jobTitle: e.job_position_title || e.jobTitle || 'Staff',
+      }));
       setDepartments(deptList);
       setEmployees(empList);
     } catch (err) {
@@ -97,18 +106,23 @@ export function DepartmentModal({ isOpen, onClose, initialTab = 'list' }) {
 
     setSaving(true);
     try {
-      await saveMockDepartment({
-        id: selectedDept?.id,
+      const payload = {
         name: name.trim(),
         code: code.trim().toUpperCase(),
         managerName: managerName.trim(),
         company: company.trim(),
         status,
-      });
+      };
+      if (selectedDept?.id) {
+        await updateDepartmentApi(selectedDept.id, payload);
+      } else {
+        await createDepartmentApi(payload);
+      }
       await fetchDepartments();
       setActiveTab('list');
     } catch (err) {
       console.error('Error saving department:', err);
+      alert('Error saving department: ' + (err.response?.data?.message || err.message));
     } finally {
       setSaving(false);
     }
@@ -118,12 +132,13 @@ export function DepartmentModal({ isOpen, onClose, initialTab = 'list' }) {
     if (!deptToDelete) return;
     setDeleting(true);
     try {
-      await deleteMockDepartment(deptToDelete.id);
+      await deleteDepartmentApi(deptToDelete.id);
       await fetchDepartments();
       setDeptToDelete(null);
       setActiveTab('list');
     } catch (err) {
       console.error('Error deleting department:', err);
+      alert('Error deleting department: ' + (err.response?.data?.message || err.message));
     } finally {
       setDeleting(false);
     }
@@ -135,6 +150,8 @@ export function DepartmentModal({ isOpen, onClose, initialTab = 'list' }) {
       d.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.managerName && d.managerName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  if (!isOpen) return null;
 
   return (
     <Modal
@@ -254,9 +271,9 @@ export function DepartmentModal({ isOpen, onClose, initialTab = 'list' }) {
             </div>
           ) : (
             <div className="max-h-[380px] overflow-y-auto pr-1 flex flex-col gap-2.5">
-              {filteredDepartments.map((dept) => (
+              {filteredDepartments.map((dept, idx) => (
                 <div
-                  key={dept.id}
+                  key={`dept-${dept?.id ?? dept?.code ?? idx}-${idx}`}
                   className="p-3.5 glass-panel rounded-sm hover:border-primary-600/60 hover:scale-[1.01] transition-all flex items-center justify-between gap-3 shadow-3d"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -334,8 +351,8 @@ export function DepartmentModal({ isOpen, onClose, initialTab = 'list' }) {
             onChange={(e) => setManagerName(e.target.value)}
           >
             <option value="">-- Unassigned --</option>
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.name}>
+            {employees.map((emp, idx) => (
+              <option key={`emp-${emp?.id ?? emp?.name ?? idx}-${idx}`} value={emp.name}>
                 {emp.name} ({emp.jobTitle})
               </option>
             ))}

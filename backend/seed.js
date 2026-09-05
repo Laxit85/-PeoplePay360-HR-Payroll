@@ -59,7 +59,8 @@ async function seedDatabase() {
       (1, 'admin@peoplepay360.internal', '${adminPass}', 1),
       (2, 'hr.manager@peoplepay360.internal', '${hrPass}', 2),
       (3, 'payroll.manager@peoplepay360.internal', '${payrollPass}', 4),
-      (4, 'alex.morgan@peoplepay360.internal', '${empPass}', 5);
+      (4, 'alex.morgan@peoplepay360.internal', '${empPass}', 5),
+      (5, 'payroll.user@peoplepay360.internal', '${payrollPass}', 3);
     `);
 
     // 3. Departments & Job Positions

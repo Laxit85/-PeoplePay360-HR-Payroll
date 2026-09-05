@@ -4,6 +4,7 @@ import { Plus, DollarSign, ArrowRight } from 'lucide-react';
 import {
   getPayrunsApi,
   getSalaryStructuresApi,
+  getEligibleEmployeesApi,
   createPayrunApi,
 } from '../../../api';
 import { DataTable } from '../../../components/data/DataTable';
@@ -54,9 +55,9 @@ export function PayrunListPage() {
         salaryStructureName: p.salary_structure_name || 'Standard Structure',
         periodStart: p.period_start,
         periodEnd: p.period_end,
-        totalNetWage: parseFloat(p.total_net_wage || 0),
+        totalNetWage: parseFloat(p.total_net || p.total_net_wage || 0),
         status: p.status || 'DRAFT',
-        employeeCount: p.employee_count || 0
+        employeeCount: p.total_employees || p.employee_count || 0
       }));
 
       setPayruns(formattedPayruns);
@@ -81,10 +82,29 @@ export function PayrunListPage() {
   const handleStep1Continue = async () => {
     setEligibleLoading(true);
     try {
-      const eligible = await fetchEligibleEmployeesForPayrun(periodStart, periodEnd);
+      const res = await getEligibleEmployeesApi({
+        salary_structure_id: salaryStructureId,
+        period_start: periodStart,
+        period_end: periodEnd,
+      });
+      const rows = res?.data || res || [];
+      const eligible = rows.map((r) => ({
+        employeeId: r.employee_id,
+        employeeName: r.full_name,
+        jobPosition: r.job_position_title || 'Staff',
+        department: r.department_name || 'General',
+        contractId: r.contract_id,
+        wage: parseFloat(r.contract_wage || 0),
+        workingHours: '40h/wk',
+        hasBankDetails: Boolean(r.has_bank_details),
+      }));
+
       setEligibleEmployees(eligible);
       setSelectedEmployeeIds(eligible.map((e) => e.employeeId));
       setWizardStep(2);
+    } catch (err) {
+      console.error('Failed to fetch eligible employees', err);
+      alert('Unable to load eligible employees for the selected structure and dates.');
     } finally {
       setEligibleLoading(false);
     }
@@ -97,14 +117,19 @@ export function PayrunListPage() {
     }
     setCreating(true);
     try {
-      const created = await createPayrun({
-        salaryStructureId,
-        periodStart,
-        periodEnd,
-        selectedEmployeeIds,
+      const res = await createPayrunApi({
+        name: `Pay Run (${formatDate(periodStart)} – ${formatDate(periodEnd)})`,
+        salary_structure_id: salaryStructureId,
+        period_start: periodStart,
+        period_end: periodEnd,
+        selected_employee_ids: selectedEmployeeIds,
       });
+      const createdId = res?.data?.id || res?.id;
       setIsWizardOpen(false);
-      navigate(`/payroll/payruns/${created.id}`);
+      navigate(`/payroll/payruns/${createdId}`);
+    } catch (err) {
+      console.error('Failed to create payrun', err);
+      alert('Failed to initialize pay run batch in database.');
     } finally {
       setCreating(false);
     }

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, UserCheck, Shield } from 'lucide-react';
-import { getMockUsers, getMockEmployees, createMockUser } from '../../mockApi/apiHandlers';
+import { getUsersApi, createUserApi, getEmployeesApi } from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { ROLES } from '../../auth/permissions';
+import { ROLES, PRIMARY_ROLES } from '../../auth/permissions';
 
 export function UserListPage() {
   const [users, setUsers] = useState([]);
@@ -25,10 +25,21 @@ export function UserListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [uList, eList] = await Promise.all([getMockUsers(), getMockEmployees()]);
+      const [uRes, eRes] = await Promise.all([getUsersApi(), getEmployeesApi()]);
+      const uList = uRes?.data || uRes || [];
+      const eRows = eRes?.data || eRes || [];
+      const eList = eRows.map((e) => ({
+        id: e.id,
+        name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.name || `Employee #${e.id}`,
+        workEmail: e.email || e.workEmail,
+        department: e.department_name || e.department || 'General',
+        jobTitle: e.job_position_title || e.jobTitle || 'Staff',
+      }));
       setUsers(uList);
       setEmployees(eList);
       if (eList.length > 0) setEmployeeId(eList[0].id);
+    } catch (err) {
+      console.error('Failed to fetch users or employees', err);
     } finally {
       setLoading(false);
     }
@@ -42,8 +53,8 @@ export function UserListPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const emp = employees.find((x) => x.id === employeeId);
-      await createMockUser({
+      const emp = employees.find((x) => String(x.id) === String(employeeId));
+      await createUserApi({
         name: name || emp?.name || 'New User',
         email,
         role,
@@ -54,6 +65,9 @@ export function UserListPage() {
       setName('');
       setEmail('');
       fetchData();
+    } catch (err) {
+      console.error('Failed to create user', err);
+      alert('Failed to create user account: ' + (err.response?.data?.message || err.message));
     } finally {
       setSaving(false);
     }
@@ -166,7 +180,7 @@ export function UserListPage() {
             value={role}
             onChange={(e) => setRole(e.target.value)}
           >
-            {Object.values(ROLES).map((r) => (
+            {PRIMARY_ROLES.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>

@@ -24,8 +24,46 @@ export const AuthProvider = ({ children }) => {
     };
   });
 
+  const demoUsers = [
+    {
+      id: 1,
+      name: 'Admin',
+      email: 'admin@peoplepay360.internal',
+      role: 'ADMIN',
+      employeeId: 1,
+    },
+    {
+      id: 2,
+      name: 'Elena Rostova',
+      email: 'hr.manager@peoplepay360.internal',
+      role: 'HR_MANAGER',
+      employeeId: 4,
+    },
+    {
+      id: 8,
+      name: 'Sarah Chen',
+      email: 'payroll.user@peoplepay360.internal',
+      role: 'HR_PAYROLL_USER',
+      employeeId: 2,
+    },
+    {
+      id: 3,
+      name: 'David Kim',
+      email: 'payroll.manager@peoplepay360.internal',
+      role: 'HR_PAYROLL_MANAGER',
+      employeeId: 5,
+    },
+    {
+      id: 4,
+      name: 'Alex Morgan',
+      email: 'alex.morgan@peoplepay360.internal',
+      role: 'EMPLOYEE',
+      employeeId: 1,
+    },
+  ];
+
   const [token, setToken] = useState(() => localStorage.getItem('hrms_jwt_token') || null);
-  const [availableUsers, setAvailableUsers] = useState([]);
+  const [availableUsers, setAvailableUsers] = useState(demoUsers);
 
   useEffect(() => {
     if (token) {
@@ -77,9 +115,29 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('hrms_jwt_token');
   };
 
-  const switchUser = (selectedUser) => {
+  const switchUser = async (selectedUser) => {
     setUser(selectedUser);
     localStorage.setItem('hrms_current_user', JSON.stringify(selectedUser));
+
+    const passMap = {
+      'admin@peoplepay360.internal': 'admin123',
+      'hr.manager@peoplepay360.internal': 'manager123',
+      'payroll.user@peoplepay360.internal': 'payroll123',
+      'payroll.manager@peoplepay360.internal': 'payroll123',
+      'alex.morgan@peoplepay360.internal': 'employee123',
+    };
+    const pass = passMap[selectedUser.email];
+    if (pass) {
+      try {
+        const res = await loginApi(selectedUser.email, pass);
+        if (res.success && res.token) {
+          setToken(res.token);
+          localStorage.setItem('hrms_jwt_token', res.token);
+        }
+      } catch {
+        // Continue with switched state
+      }
+    }
   };
 
   const can = (capability) => {

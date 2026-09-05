@@ -106,27 +106,41 @@ export function TopNavbar() {
             </div>
 
             <nav className="hidden md:flex items-center gap-2 text-sm font-medium text-ink-900">
-              {canAccess('employees') && (
+              {/* Company Employees directory: only for HR/Admin */}
+              {canAccess('employees') && user?.role !== 'EMPLOYEE' && (
                 <NavLink to="/employees" className={() => navLinkStyle(isEmployeesActive)}>
                   Employees
                 </NavLink>
               )}
 
-              {canAccess('contracts') && (
+              {/* Normal employee sees their required My Profile link */}
+              {user?.role === 'EMPLOYEE' && (
                 <NavLink
-                  to="/employees/emp-1/contracts"
+                  to={`/employees/${user?.employeeId || 1}`}
+                  className={() => navLinkStyle(isEmployeesActive)}
+                >
+                  My Profile
+                </NavLink>
+              )}
+
+              {/* Contracts: visible to HR / Admin */}
+              {canAccess('contracts') && user?.role !== 'EMPLOYEE' && (
+                <NavLink
+                  to="/employees/1/contracts"
                   className={() => navLinkStyle(isContractsActive)}
                 >
                   Contracts
                 </NavLink>
               )}
 
-              {canAccess('attendance') && (
+              {/* Schedules: visible to HR / Admin */}
+              {canAccess('schedules') && user?.role !== 'EMPLOYEE' && (
                 <NavLink to="/schedules" className={() => navLinkStyle(isSchedulesActive)}>
                   Schedules
                 </NavLink>
               )}
 
+              {/* Attendance: visible to everyone */}
               {canAccess('attendance') && (
                 <NavLink to="/attendance" className={() => navLinkStyle(isAttendanceActive)}>
                   Attendance
@@ -160,13 +174,15 @@ export function TopNavbar() {
                       >
                         Allocations Balance
                       </NavLink>
-                      <NavLink
-                        to="/timeoff/types"
-                        onClick={() => setTimeOffOpen(false)}
-                        className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
-                      >
-                        Time Off Types Policy
-                      </NavLink>
+                      {can('timeoff.manage_types') && (
+                        <NavLink
+                          to="/timeoff/types"
+                          onClick={() => setTimeOffOpen(false)}
+                          className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                        >
+                          Time Off Types Policy
+                        </NavLink>
+                      )}
                     </div>
                   )}
                 </div>
@@ -208,7 +224,7 @@ export function TopNavbar() {
                           Salary Structures
                         </NavLink>
                       )}
-                      {can('payroll.rules.manage') && (
+                      {can('payroll.rules.read') && (
                         <NavLink
                           to="/payroll/rules"
                           onClick={() => setPayrollOpen(false)}
@@ -300,11 +316,13 @@ export function TopNavbar() {
       </header>
 
       {/* Main Department Management Popup Modal Window */}
-      <DepartmentModal
-        isOpen={isDeptModalOpen}
-        onClose={() => setIsDeptModalOpen(false)}
-        initialTab={deptModalInitialTab}
-      />
+      {isDeptModalOpen && (
+        <DepartmentModal
+          isOpen={isDeptModalOpen}
+          onClose={() => setIsDeptModalOpen(false)}
+          initialTab={deptModalInitialTab}
+        />
+      )}
     </>
   );
 }

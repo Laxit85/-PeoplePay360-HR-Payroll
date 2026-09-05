@@ -111,7 +111,7 @@ exports.getEmployeeById = async (req, res) => {
        JOIN salary_structures ss ON c.salary_structure_id = ss.id
        WHERE c.employee_id = ? AND c.status = 'ACTIVE'
        LIMIT 1`,
-      [employeeId]
+      [realId]
     );
 
     res.status(200).json({
@@ -131,9 +131,89 @@ exports.getEmployeeById = async (req, res) => {
   }
 };
 
+// Helper to normalize and resolve employee payload across frontend formats
+async function resolveEmployeePayload(body) {
+  const payload = { ...body };
+
+  // 1. Resolve first_name and last_name
+  if (!payload.first_name && payload.name) {
+    const parts = payload.name.trim().split(' ');
+    payload.first_name = parts[0] || 'Employee';
+    payload.last_name = parts.slice(1).join(' ') || 'Team';
+  }
+  if (!payload.first_name && payload.email) {
+    payload.first_name = payload.email.split('@')[0] || 'Employee';
+  }
+  if (!payload.last_name && payload.last_name !== '') {
+    payload.last_name = payload.last_name || 'Member';
+  }
+
+  // 2. Email & Phone mappings
+  if (!payload.email && payload.workEmail) payload.email = payload.workEmail;
+  if (!payload.phone && payload.workPhone) payload.phone = payload.workPhone;
+
+  // 3. Department mapping (name -> department_id)
+  if (!payload.department_id && (payload.department || payload.department_name)) {
+    const deptName = payload.department || payload.department_name;
+    const [dRows] = await pool.execute('SELECT id FROM departments WHERE name LIKE ? LIMIT 1', [`%${deptName}%`]);
+    if (dRows.length > 0) {
+      payload.department_id = dRows[0].id;
+    }
+  }
+
+  // 4. Job Position mapping (title -> job_position_id)
+  const jobTitle = payload.job_title || payload.jobTitle || payload.job_position_title;
+  if (!payload.job_position_id && jobTitle) {
+    const [jRows] = await pool.execute('SELECT id FROM job_positions WHERE title LIKE ? LIMIT 1', [`%${jobTitle}%`]);
+    if (jRows.length > 0) {
+      payload.job_position_id = jRows[0].id;
+    } else {
+      const deptId = payload.department_id || 1;
+      const [newJob] = await pool.execute(
+        'INSERT INTO job_positions (title, department_id) VALUES (?, ?)',
+        [jobTitle, deptId]
+      );
+      payload.job_position_id = newJob.insertId;
+    }
+  }
+
+  // 5. Employee type normalization
+  const rawType = payload.employee_type || payload.employeeType;
+  if (rawType) {
+    const norm = String(rawType).toUpperCase().replace(/[-\s]/g, '_');
+    if (['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'INTERN'].includes(norm)) {
+      payload.employee_type = norm;
+    }
+  }
+
+  // 6. Employment status normalization
+  const rawStatus = payload.employment_status || payload.status;
+  if (rawStatus) {
+    const norm = String(rawStatus).toUpperCase().replace(/[-\s]/g, '_');
+    if (['PROBATION', 'ACTIVE', 'NOTICE_PERIOD', 'TERMINATED'].includes(norm)) {
+      payload.employment_status = norm;
+    }
+  }
+
+  // 7. Bank & Tax fields mapping
+  if (!payload.bank_name && payload.bankName) payload.bank_name = payload.bankName;
+  if (!payload.bank_account_no && (payload.bankAccountNo || payload.accountNumber)) {
+    payload.bank_account_no = payload.bankAccountNo || payload.accountNumber;
+  }
+  if (!payload.bank_ifsc_or_routing && (payload.bankIfscOrRouting || payload.ifscCode)) {
+    payload.bank_ifsc_or_routing = payload.bankIfscOrRouting || payload.ifscCode;
+  }
+  if (!payload.tax_id_or_pan && (payload.taxIdOrPan || payload.taxId)) {
+    payload.tax_id_or_pan = payload.taxIdOrPan || payload.taxId;
+  }
+
+  return payload;
+}
+
 // POST /api/employees (Auto-links or creates linked User account if user_id is not passed)
 exports.createEmployee = async (req, res) => {
   try {
+    const payload = await resolveEmployeePayload(req.body);
     const {
       employee_code,
       first_name,
@@ -152,7 +232,7 @@ exports.createEmployee = async (req, res) => {
       bank_ifsc_or_routing,
       tax_id_or_pan,
       user_id
-    } = req.body;
+    } = payload;
 
     let assignedUserId = user_id || null;
 
@@ -162,7 +242,6 @@ exports.createEmployee = async (req, res) => {
       if (existingUser.length > 0) {
         assignedUserId = existingUser[0].id;
       } else {
-        // Auto-create user account with default role EMPLOYEE (role_id: 5)
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash('Employee123!', salt);
         const [newUser] = await pool.execute(
@@ -183,7 +262,7 @@ exports.createEmployee = async (req, res) => {
         bank_name, bank_account_no, bank_ifsc_or_routing, tax_id_or_pan, user_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        codeToUse, first_name, last_name, email, phone || null,
+        codeToUse, first_name || 'Employee', last_name || '', email, phone || null,
         department_id || 1, job_position_id || 1, manager_id || null, working_schedule_id || 1,
         employee_type || 'FULL_TIME', employment_status || 'ACTIVE', joining_date || new Date().toISOString().split('T')[0],
         bank_name || null, bank_account_no || null, bank_ifsc_or_routing || null, tax_id_or_pan || null,
@@ -197,7 +276,8 @@ exports.createEmployee = async (req, res) => {
       data: {
         id: result.insertId,
         user_id: assignedUserId,
-        ...req.body
+        employee_code: codeToUse,
+        ...payload
       }
     });
   } catch (error) {
@@ -208,8 +288,23 @@ exports.createEmployee = async (req, res) => {
 // PUT /api/employees/:id
 exports.updateEmployee = async (req, res) => {
   try {
-    const employeeId = req.params.id;
-    const fields = req.body;
+    const rawId = req.params.id;
+    const cleanId = String(rawId).replace(/^emp-/i, '');
+
+    // Resolve target employee ID
+    const [empRows] = await pool.execute('SELECT id FROM employees WHERE id = ? OR employee_code = ? LIMIT 1', [cleanId, rawId]);
+    const employeeId = empRows[0]?.id || cleanId;
+
+    // Normal employees can only update their own employee record
+    if (req.user?.role === 'EMPLOYEE') {
+      const [userEmps] = await pool.execute('SELECT id FROM employees WHERE user_id = ? LIMIT 1', [req.user.id]);
+      const myEmpId = userEmps[0]?.id;
+      if (myEmpId && String(employeeId) !== String(myEmpId)) {
+        return res.status(403).json({ success: false, message: 'You can only update your own employee record' });
+      }
+    }
+
+    const payload = await resolveEmployeePayload(req.body);
 
     const allowedFields = [
       'first_name', 'last_name', 'email', 'phone', 'department_id',
@@ -221,8 +316,8 @@ exports.updateEmployee = async (req, res) => {
     const updates = [];
     const values = [];
 
-    for (const [key, val] of Object.entries(fields)) {
-      if (allowedFields.includes(key)) {
+    for (const [key, val] of Object.entries(payload)) {
+      if (allowedFields.includes(key) && val !== undefined) {
         updates.push(`${key} = ?`);
         values.push(val);
       }
@@ -245,8 +340,9 @@ exports.updateEmployee = async (req, res) => {
 // DELETE /api/employees/:id
 exports.deleteEmployee = async (req, res) => {
   try {
-    const employeeId = req.params.id;
-    await pool.execute('DELETE FROM employees WHERE id = ?', [employeeId]);
+    const rawId = req.params.id;
+    const cleanId = String(rawId).replace(/^emp-/i, '');
+    await pool.execute('DELETE FROM employees WHERE id = ? OR employee_code = ?', [cleanId, rawId]);
     res.status(200).json({ success: true, message: 'Employee deleted successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });

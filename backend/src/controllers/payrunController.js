@@ -12,7 +12,9 @@ const { sendPayslipEmail } = require('../services/emailService');
 // GET /api/payruns/eligible-employees?salary_structure_id=X&period_start=Y&period_end=Z
 exports.getEligibleEmployees = async (req, res) => {
   try {
-    const { salary_structure_id, period_start, period_end } = req.query;
+    const salary_structure_id = req.query.salary_structure_id || req.query.salaryStructureId;
+    const period_start = req.query.period_start || req.query.periodStart;
+    const period_end = req.query.period_end || req.query.periodEnd;
 
     if (!salary_structure_id || !period_start || !period_end) {
       return res.status(400).json({
@@ -59,7 +61,11 @@ exports.createPayrun = async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    const { name, period_start, period_end, salary_structure_id, selected_employee_ids } = req.body;
+    const period_start = req.body.period_start || req.body.periodStart;
+    const period_end = req.body.period_end || req.body.periodEnd;
+    const salary_structure_id = req.body.salary_structure_id || req.body.salaryStructureId;
+    const selected_employee_ids = req.body.selected_employee_ids || req.body.selectedEmployeeIds;
+    const name = req.body.name || `Pay Run (${period_start} to ${period_end})`;
 
     if (!selected_employee_ids || !Array.isArray(selected_employee_ids) || selected_employee_ids.length === 0) {
       return res.status(400).json({ success: false, message: 'Please select at least one employee' });
@@ -146,11 +152,13 @@ exports.getPayrunById = async (req, res) => {
         e.last_name,
         e.email,
         d.name AS department_name,
+        jp.title AS job_position_title,
         c.wage AS contract_wage,
         c.reference_name AS contract_reference
        FROM payslips ps
        JOIN employees e ON ps.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN job_positions jp ON e.job_position_id = jp.id
        JOIN contracts c ON ps.contract_id = c.id
        WHERE ps.payrun_id = ?
        ORDER BY e.employee_code ASC`,
@@ -166,10 +174,56 @@ exports.getPayrunById = async (req, res) => {
       [payrunId]
     );
 
+    // Format payslips for frontend compatibility
+    const formattedPayslips = payslips.map((ps) => {
+      const empWarnings = warnings
+        .filter((w) => w.payslip_id === ps.id || w.employee_id === ps.employee_id)
+        .map((w) => w.message || `${w.warning_type}: Warning for employee`);
+
+      return {
+        ...ps,
+        id: ps.id,
+        employeeId: ps.employee_id,
+        employeeCode: ps.employee_code,
+        employeeName: `${ps.first_name} ${ps.last_name}`,
+        department: ps.department_name || 'General',
+        jobPosition: ps.job_position_title || 'Staff',
+        contractWage: parseFloat(ps.contract_wage || 0),
+        workedDays: parseFloat(ps.worked_days || 0),
+        scheduledWorkDays: parseFloat(ps.scheduled_work_days || 0),
+        unpaidLeaveDays: parseFloat(ps.unpaid_leave_days || 0),
+        basic: parseFloat(ps.contract_wage || 0),
+        gross: parseFloat(ps.gross_salary || 0),
+        net: parseFloat(ps.net_salary || 0),
+        totalDeductions: parseFloat(ps.total_deductions || 0),
+        status: ps.status,
+        warnings: empWarnings
+      };
+    });
+
+    const formattedPayrun = {
+      ...payrun,
+      id: payrun.id,
+      name: payrun.name,
+      periodStart: payrun.period_start,
+      periodEnd: payrun.period_end,
+      salaryStructureId: payrun.salary_structure_id,
+      salaryStructureName: payrun.salary_structure_name,
+      status: payrun.status,
+      totalEmployees: payrun.total_employees || formattedPayslips.length,
+      totalGross: parseFloat(payrun.total_gross || 0),
+      totalDeductions: parseFloat(payrun.total_deductions || 0),
+      totalNet: parseFloat(payrun.total_net || 0),
+      warningsCount: payrun.warnings_count,
+      payslips: formattedPayslips,
+      warnings
+    };
+
     res.status(200).json({
       success: true,
-      data: payrun,
-      payslips,
+      data: formattedPayrun,
+      payrun: formattedPayrun,
+      payslips: formattedPayslips,
       warnings
     });
   } catch (error) {
@@ -250,7 +304,7 @@ exports.computePayrun = async (req, res) => {
 
       // Scan warnings
       const warnings = await scanWarnings(
-        slip,
+        { ...slip, id: slip.employee_id, employee_id: slip.employee_id },
         activeContract,
         netSalary,
         payrunId,
@@ -263,7 +317,7 @@ exports.computePayrun = async (req, res) => {
         await connection.execute(
           `INSERT INTO payroll_warnings (payrun_id, payslip_id, employee_id, warning_type, severity, message) 
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [payrunId, slip.id, w.employee_id, w.warning_type, w.severity, w.message]
+          [payrunId, slip.id, w.employee_id || slip.employee_id, w.warning_type, w.severity, w.message]
         );
       }
 
@@ -479,6 +533,94 @@ exports.sendPayslips = async (req, res) => {
       failedCount,
       results: deliveryResults
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/payruns/payslips/:id (and /api/payslips/:id)
+exports.getPayslipById = async (req, res) => {
+  try {
+    const payslipId = req.params.id;
+    const [payslips] = await pool.execute(
+      `SELECT 
+        ps.*,
+        e.id AS emp_id,
+        e.employee_code,
+        e.first_name,
+        e.last_name,
+        e.email,
+        e.user_id,
+        d.name AS department_name,
+        jp.title AS job_position_title,
+        c.wage AS contract_wage,
+        c.reference_name AS contract_reference,
+        p.name AS payrun_name
+       FROM payslips ps
+       JOIN employees e ON ps.employee_id = e.id
+       LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN job_positions jp ON e.job_position_id = jp.id
+       JOIN contracts c ON ps.contract_id = c.id
+       JOIN payruns p ON ps.payrun_id = p.id
+       WHERE ps.id = ?`,
+      [payslipId]
+    );
+
+    if (payslips.length === 0) {
+      return res.status(404).json({ success: false, message: 'Payslip not found' });
+    }
+
+    const ps = payslips[0];
+
+    // RBAC: If EMPLOYEE role, can only view own payslip
+    if (req.user?.role === 'EMPLOYEE' && ps.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied: You can only view your own payslips' });
+    }
+
+    const [lines] = await pool.execute(
+      'SELECT * FROM payslip_lines WHERE payslip_id = ? ORDER BY sequence ASC',
+      [payslipId]
+    );
+
+    // Calculate Basic & Allowances
+    const basicLine = lines.find(l => l.category === 'BASIC' || l.rule_code === 'BASIC');
+    const allowancesTotal = lines
+      .filter(l => l.category === 'ALLOWANCE')
+      .reduce((sum, l) => sum + parseFloat(l.amount || 0), 0);
+
+    const formatted = {
+      id: ps.id,
+      payrunId: ps.payrun_id,
+      payrunName: ps.payrun_name,
+      employeeId: ps.employee_id,
+      employeeCode: ps.employee_code,
+      employeeName: `${ps.first_name} ${ps.last_name}`,
+      department: ps.department_name || 'General',
+      jobPosition: ps.job_position_title || 'Staff',
+      periodStart: ps.period_start,
+      periodEnd: ps.period_end,
+      scheduledWorkDays: parseFloat(ps.scheduled_work_days || 0),
+      workedDays: parseFloat(ps.worked_days || 0),
+      unpaidLeaveDays: parseFloat(ps.unpaid_leave_days || 0),
+      basic: parseFloat(basicLine ? basicLine.amount : ps.contract_wage || 0),
+      allowances: allowancesTotal,
+      gross: parseFloat(ps.gross_salary || 0),
+      deductions: parseFloat(ps.total_deductions || 0),
+      net: parseFloat(ps.net_salary || 0),
+      status: ps.status,
+      deliveryStatus: ps.delivery_status,
+      ruleLineItems: lines.map(l => ({
+        id: l.id,
+        code: l.rule_code,
+        name: l.rule_name,
+        category: l.category ? (l.category.charAt(0).toUpperCase() + l.category.slice(1).toLowerCase()) : 'Allowance',
+        sequence: l.sequence,
+        rateOrPercentage: l.rate_or_percentage,
+        amount: parseFloat(l.amount || 0)
+      }))
+    };
+
+    res.status(200).json({ success: true, data: formatted });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
