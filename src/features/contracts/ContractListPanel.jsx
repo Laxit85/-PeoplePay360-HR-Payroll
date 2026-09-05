@@ -1,0 +1,256 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Plus, FileText, ArrowLeft, AlertCircle } from 'lucide-react';
+import { getMockContracts, saveMockContract, getMockSchedules, getSalaryStructures, getMockEmployeeById } from '../../mockApi/apiHandlers';
+import { DataTable } from '../../components/data/DataTable';
+import { StatusBadge } from '../../components/data/StatusBadge';
+import { CurrencyCell } from '../../components/data/CurrencyCell';
+import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { formatDate } from '../../lib/format';
+import { useAuth } from '../../auth/useAuth';
+
+export function ContractListPanel() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { can } = useAuth();
+
+  const [contracts, setContracts] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [structures, setStructures] = useState([]);
+  const [employee, setEmployee] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Form state
+  const [selectedContract, setSelectedContract] = useState(null);
+  const [jobPosition, setJobPosition] = useState('');
+  const [startDate, setStartDate] = useState('2026-01-01');
+  const [endDate, setEndDate] = useState('2026-12-31');
+  const [wage, setWage] = useState(7500);
+  const [workingScheduleId, setWorkingScheduleId] = useState('');
+  const [salaryStructureId, setSalaryStructureId] = useState('');
+  const [status, setStatus] = useState('Running'); // Running, Draft, Expired, Terminated
+  const [errorMessage, setErrorMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [cList, sList, stList, emp] = await Promise.all([
+        getMockContracts(id),
+        getMockSchedules(),
+        getSalaryStructures(),
+        id ? getMockEmployeeById(id) : null,
+      ]);
+      setContracts(cList);
+      setSchedules(sList);
+      setStructures(stList);
+      setEmployee(emp);
+      if (sList.length) setWorkingScheduleId(sList[0].id);
+      if (stList.length) setSalaryStructureId(stList[0].id);
+      if (emp) setJobPosition(emp.jobTitle);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [id]);
+
+  const handleOpenNew = () => {
+    setSelectedContract(null);
+    setJobPosition(employee?.jobTitle || 'Software Engineer');
+    setWage(7500);
+    setStatus('Running');
+    setErrorMessage('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (c) => {
+    setSelectedContract(c);
+    setJobPosition(c.jobPosition);
+    setStartDate(c.startDate);
+    setEndDate(c.endDate);
+    setWage(c.wage);
+    setWorkingScheduleId(c.workingScheduleId);
+    setSalaryStructureId(c.salaryStructureId);
+    setStatus(c.status);
+    setErrorMessage('');
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSaving(true);
+    try {
+      await saveMockContract({
+        id: selectedContract?.id,
+        employeeId: id || selectedContract?.employeeId || 'emp-6',
+        jobPosition,
+        startDate,
+        endDate,
+        wage: Number(wage),
+        workingScheduleId,
+        salaryStructureId,
+        status,
+      });
+      setIsModalOpen(false);
+      fetchData();
+    } catch (err) {
+      setErrorMessage(err.message || 'Validation error saving contract');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const columns = [
+    { key: 'jobPosition', header: 'Job Position' },
+    { key: 'startDate', header: 'Start Date', render: (val) => formatDate(val) },
+    { key: 'endDate', header: 'End Date', render: (val) => formatDate(val) },
+    {
+      key: 'wage',
+      header: 'Wage / Month',
+      align: 'right',
+      render: (val) => <CurrencyCell amount={val} />,
+    },
+    {
+      key: 'status',
+      header: 'Contract Status',
+      render: (val) => <StatusBadge status={val} />,
+    },
+  ];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {id && (
+            <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate(`/employees/${id}`)}>
+              Back to Employee
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold font-display text-ink-900 flex items-center gap-2">
+              <FileText className="w-6 h-6 text-primary-600" />
+              <span>Contracts {employee ? `— ${employee.name}` : ''}</span>
+            </h1>
+            <p className="text-xs text-ink-600 mt-1">
+              Payroll resolves the specific contract running during the pay period. (Max 1 Running contract allowed at any given time).
+            </p>
+          </div>
+        </div>
+
+        {can('contracts.manage') && (
+          <Button variant="primary" icon={Plus} onClick={handleOpenNew}>
+            New Contract
+          </Button>
+        )}
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={contracts}
+        onRowClick={(c) => can('contracts.manage') && handleOpenEdit(c)}
+        emptyMessage="No contracts found for this employee"
+      />
+
+      {/* Contract Form Modal Drawer */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={selectedContract ? 'Edit Contract Record' : 'Create New Contract'}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Contract'}
+            </Button>
+          </>
+        }
+      >
+        {errorMessage && (
+          <div className="mb-4 p-3 rounded-sm bg-danger-50 border border-danger-600/30 text-xs font-semibold text-danger-600 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSave} className="flex flex-col gap-4">
+          <Input
+            label="Job Position Title"
+            value={jobPosition}
+            onChange={(e) => setJobPosition(e.target.value)}
+            required
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+            />
+            <Input
+              label="End Date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <Input
+            label="Monthly Wage ($ USD)"
+            type="number"
+            value={wage}
+            onChange={(e) => setWage(e.target.value)}
+            required
+          />
+
+          <Select
+            label="Working Schedule"
+            value={workingScheduleId}
+            onChange={(e) => setWorkingScheduleId(e.target.value)}
+          >
+            {schedules.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.hoursPerWeek}h/wk)
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            label="Salary Structure"
+            value={salaryStructureId}
+            onChange={(e) => setSalaryStructureId(e.target.value)}
+          >
+            {structures.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.code})
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            label="Contract Status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="Running">Running (Active for Payroll)</option>
+            <option value="Draft">Draft</option>
+            <option value="Expired">Expired</option>
+            <option value="Terminated">Terminated</option>
+          </Select>
+        </form>
+      </Modal>
+    </div>
+  );
+}
