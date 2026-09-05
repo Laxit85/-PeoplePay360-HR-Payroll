@@ -25,6 +25,10 @@ const testDBConnection = async () => {
   }
 };
 
-module.exports = pool;
-module.exports.pool = pool;
-module.exports.testDBConnection = testDBConnection;
+module.exports = {
+  pool,
+  testDBConnection,
+  query: (...args) => pool.query(...args),
+  execute: (...args) => pool.execute(...args),
+  getConnection: (...args) => pool.getConnection(...args)
+};
