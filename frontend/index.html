@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PeoplePay360 - API Testing & Control Center</title>
+  <title>PeoplePay360 - Database & API Testing Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-dark: #090d16;
-      --panel-bg: rgba(18, 26, 43, 0.75);
+      --panel-bg: rgba(18, 26, 43, 0.85);
       --panel-border: rgba(255, 255, 255, 0.08);
       --primary: #6366f1;
       --primary-hover: #4f46e5;
@@ -149,10 +149,10 @@
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 320px 1fr 450px;
+      grid-template-columns: 360px 480px 1fr;
       gap: 24px;
       padding: 24px 32px;
-      max-width: 1800px;
+      max-width: 1850px;
       margin: 0 auto;
       width: 100%;
     }
@@ -196,105 +196,61 @@
       gap: 20px;
     }
 
-    /* Preset Users / Auth Card */
-    .auth-card {
+    /* Auth & Mode Selector */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+
+    .form-card {
       background: rgba(0, 0, 0, 0.3);
       border: 1px solid var(--panel-border);
       border-radius: 12px;
       padding: 16px;
-    }
-
-    .auth-title {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      margin-bottom: 12px;
-      font-weight: 600;
-    }
-
-    .preset-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .btn-preset {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--panel-border);
-      color: #d1d5db;
-      padding: 8px 10px;
-      border-radius: 8px;
-      font-size: 0.78rem;
-      cursor: pointer;
-      text-align: left;
-      transition: all 0.2s ease;
-    }
-
-    .btn-preset:hover {
-      background: rgba(99, 102, 241, 0.15);
-      border-color: var(--primary);
-      color: #fff;
-    }
-
-    .btn-preset span {
-      display: block;
-      font-size: 0.7rem;
-      color: var(--text-muted);
-    }
-
-    /* Endpoint Groups */
-    .endpoint-group {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
     }
 
-    .group-label {
-      font-size: 0.75rem;
+    .form-title {
+      font-size: 0.85rem;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #818cf8;
-      margin-top: 4px;
-    }
-
-    .endpoint-btn {
+      color: #a5b4fc;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--panel-border);
-      padding: 10px 14px;
-      border-radius: 10px;
-      color: #e5e7eb;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: left;
     }
 
-    .endpoint-btn:hover {
-      background: rgba(255, 255, 255, 0.07);
-      border-color: rgba(255, 255, 255, 0.2);
-      transform: translateX(2px);
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
-    .method-tag {
-      font-family: var(--font-mono);
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-
-    .method-get { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-    .method-post { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
-    .method-put { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-    .method-delete { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-
-    /* Request Form */
     .form-group {
       display: flex;
       flex-direction: column;
@@ -302,130 +258,105 @@
     }
 
     .form-label {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 600;
       color: #9ca3af;
     }
 
-    .input-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .select-method {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--panel-border);
-      color: #fff;
-      font-family: var(--font-mono);
-      font-weight: 700;
-      padding: 10px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    .input-endpoint {
-      flex: 1;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--panel-border);
-      color: #fff;
-      font-family: var(--font-mono);
-      font-size: 0.9rem;
-      padding: 10px 14px;
-      border-radius: 8px;
-    }
-
-    .input-endpoint:focus, .input-text:focus, textarea:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 12px var(--primary-glow);
-    }
-
-    .input-text, textarea {
+    .input-text, select, textarea {
       background: rgba(0, 0, 0, 0.4);
       border: 1px solid var(--panel-border);
       color: #e5e7eb;
       font-family: var(--font-mono);
       font-size: 0.85rem;
-      padding: 10px 14px;
+      padding: 8px 12px;
       border-radius: 8px;
       width: 100%;
     }
 
-    textarea {
-      resize: vertical;
-      min-height: 140px;
+    .input-text:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary-glow);
     }
 
-    .btn-send {
-      background: linear-gradient(135deg, var(--primary), #4338ca);
+    .btn-submit {
+      background: linear-gradient(135deg, var(--accent), #059669);
       color: #fff;
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 12px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px var(--primary-glow);
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .btn-send:hover {
-      background: linear-gradient(135deg, #4f46e5, #3730a3);
-      transform: translateY(-1px);
-    }
-
-    .btn-run-all {
-      background: linear-gradient(135deg, #059669, #047857);
-      color: #fff;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 0.85rem;
-      padding: 8px 14px;
+      padding: 10px;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       box-shadow: 0 4px 12px var(--accent-glow);
       transition: all 0.2s ease;
-    }
-
-    .btn-run-all:hover {
-      background: linear-gradient(135deg, #10b981, #059669);
-    }
-
-    /* Response Panel */
-    .response-meta {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 0.85rem;
+      justify-content: center;
+      gap: 6px;
     }
 
-    .http-status {
+    .btn-submit:hover {
+      background: linear-gradient(135deg, #34d399, #10b981);
+      transform: translateY(-1px);
+    }
+
+    /* Database Inspector Table */
+    .db-table-container {
+      overflow-x: auto;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: var(--code-bg);
+    }
+
+    table.db-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      text-align: left;
+    }
+
+    table.db-table th {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 14px;
+      color: #93c5fd;
       font-family: var(--font-mono);
+      font-weight: 600;
+      border-bottom: 1px solid var(--panel-border);
+      white-space: nowrap;
+    }
+
+    table.db-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #e5e7eb;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    table.db-table tr:hover {
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
       font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 6px;
     }
 
-    .status-2xx { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-    .status-4xx { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-    .status-5xx { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-
-    .response-time {
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-    }
+    .badge-success { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-info { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
 
     .code-viewer {
       background: var(--code-bg);
       border: 1px solid var(--panel-border);
       border-radius: 10px;
-      padding: 16px;
+      padding: 14px;
       font-family: var(--font-mono);
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #e5e7eb;
       overflow: auto;
       flex: 1;
@@ -433,27 +364,19 @@
       word-break: break-word;
     }
 
-    .suite-results {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+    .http-status {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
     }
 
-    .suite-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--panel-border);
-      border-radius: 8px;
-      font-size: 0.85rem;
-    }
+    .status-2xx { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .status-4xx { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .status-5xx { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
-    .suite-pass { border-left: 4px solid var(--accent); }
-    .suite-fail { border-left: 4px solid var(--danger); }
-
-    @media (max-width: 1280px) {
+    @media (max-width: 1400px) {
       main {
         grid-template-columns: 1fr;
       }
@@ -469,7 +392,7 @@
       </div>
       <div class="brand-text">
         <h1>PeoplePay360</h1>
-        <p>Backend API Interactive Control & Testing Suite</p>
+        <p>Interactive Database Entry & Live MySQL Inspector Hub</p>
       </div>
     </div>
 
@@ -479,176 +402,208 @@
         <span id="statusText">Checking Backend...</span>
       </div>
       <input type="text" id="baseUrl" class="base-url-input" value="http://localhost:4000">
-      <button class="btn-run-all" onclick="runAutomatedSuite()">⚡ Run Test Suite</button>
     </div>
   </header>
 
   <main>
-    <!-- LEFT PANEL: Quick Test Endpoints -->
+    <!-- LEFT PANEL: Entry Creators -->
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">
-          <span>📌 API Endpoints</span>
+          <span>✍️ Create Database Entry</span>
         </div>
       </div>
       <div class="panel-body">
         
-        <!-- Auth Presets -->
-        <div class="auth-card">
-          <div class="auth-title">Quick Quick Login Presets</div>
-          <div class="preset-grid">
-            <button class="btn-preset" onclick="quickLogin('admin@peoplepay360.internal', 'admin123')">
-              Admin
-              <span>admin123</span>
-            </button>
-            <button class="btn-preset" onclick="quickLogin('hr.manager@peoplepay360.internal', 'manager123')">
-              HR Manager
-              <span>manager123</span>
-            </button>
-            <button class="btn-preset" onclick="quickLogin('payroll.manager@peoplepay360.internal', 'payroll123')">
-              Payroll Mgr
-              <span>payroll123</span>
-            </button>
-            <button class="btn-preset" onclick="quickLogin('alex.morgan@peoplepay360.internal', 'employee123')">
-              Employee
-              <span>employee123</span>
-            </button>
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="showForm('formEmployee', this)">Employee</button>
+          <button class="tab-btn" onclick="showForm('formAttendance', this)">Attendance</button>
+          <button class="tab-btn" onclick="showForm('formLeave', this)">Leave</button>
+          <button class="tab-btn" onclick="showForm('formDept', this)">Dept</button>
+        </div>
+
+        <!-- FORM 1: Create Employee -->
+        <form id="formEmployee" class="form-card" onsubmit="submitForm(event, '/api/employees', 'employees')">
+          <div class="form-title">
+            <span>➕ Add New Employee Record</span>
+            <span class="badge badge-info">MySQL: employees</span>
           </div>
-          <input type="text" id="authToken" class="input-text" placeholder="Bearer JWT Token..." style="font-size: 0.75rem;">
-        </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">First Name</label>
+              <input type="text" id="empFirst" class="input-text" value="Rahul" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" id="empLast" class="input-text" value="Sharma" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="empEmail" class="input-text" value="rahul.sharma@peoplepay360.internal" required>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Employee Code</label>
+              <input type="text" id="empCode" class="input-text" value="EMP-00999" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Department ID</label>
+              <input type="number" id="empDeptId" class="input-text" value="1" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-submit">💾 Insert into MySQL Database</button>
+        </form>
 
-        <!-- Endpoints List -->
-        <div class="endpoint-group">
-          <div class="group-label">System & Health</div>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/health')">
-            <span>Health Check</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-        </div>
+        <!-- FORM 2: Clock Attendance -->
+        <form id="formAttendance" class="form-card" style="display:none;" onsubmit="submitForm(event, '/api/attendance/check-in', 'attendances')">
+          <div class="form-title">
+            <span>⏱️ Clock Employee Attendance</span>
+            <span class="badge badge-info">MySQL: attendances</span>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Employee ID</label>
+              <input type="number" id="attEmpId" class="input-text" value="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select id="attStatus">
+                <option value="ON_TIME">ON_TIME</option>
+                <option value="LATE">LATE</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Attendance Date</label>
+            <input type="date" id="attDate" class="input-text" required>
+          </div>
+          <button type="submit" class="btn-submit">💾 Insert Attendance Record</button>
+        </form>
 
-        <div class="endpoint-group">
-          <div class="group-label">Authentication</div>
-          <button class="endpoint-btn" onclick="selectEndpoint('POST', '/api/auth/login', { email: 'admin@peoplepay360.internal', password: 'admin123' })">
-            <span>Login User</span>
-            <span class="method-tag method-post">POST</span>
-          </button>
-        </div>
+        <!-- FORM 3: Leave Request -->
+        <form id="formLeave" class="form-card" style="display:none;" onsubmit="submitForm(event, '/api/time-off/requests', 'leave_requests')">
+          <div class="form-title">
+            <span>🌴 Request Leave Time-Off</span>
+            <span class="badge badge-info">MySQL: time_off_requests</span>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Employee ID</label>
+              <input type="number" id="leaveEmpId" class="input-text" value="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Time Off Type ID</label>
+              <input type="number" id="leaveTypeId" class="input-text" value="1" required>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Start Date</label>
+              <input type="date" id="leaveStart" class="input-text" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Date</label>
+              <input type="date" id="leaveEnd" class="input-text" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-submit">💾 Insert Leave Request</button>
+        </form>
 
-        <div class="endpoint-group">
-          <div class="group-label">Employees & Contracts</div>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/employees')">
-            <span>List Employees</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/contracts')">
-            <span>List Contracts</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/working-schedules')">
-            <span>Working Schedules</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-        </div>
-
-        <div class="endpoint-group">
-          <div class="group-label">Attendance & Time-off</div>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/attendance')">
-            <span>Attendance Records</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/time-off/types')">
-            <span>Time Off Types</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-        </div>
-
-        <div class="endpoint-group">
-          <div class="group-label">Payroll & Structures</div>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/salary-structures')">
-            <span>Salary Structures</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/payruns')">
-            <span>Payruns List</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-        </div>
-
-        <div class="endpoint-group">
-          <div class="group-label">Dashboard & Org</div>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/dashboard')">
-            <span>Dashboard Metrics</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-          <button class="endpoint-btn" onclick="selectEndpoint('GET', '/api/org/departments')">
-            <span>Departments</span>
-            <span class="method-tag method-get">GET</span>
-          </button>
-        </div>
+        <!-- FORM 4: Create Department -->
+        <form id="formDept" class="form-card" style="display:none;" onsubmit="submitForm(event, '/api/org/departments', 'departments')">
+          <div class="form-title">
+            <span>🏢 Add New Department</span>
+            <span class="badge badge-info">MySQL: departments</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department Name</label>
+            <input type="text" id="deptName" class="input-text" value="AI Research & Intelligence" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department Code</label>
+            <input type="text" id="deptCode" class="input-text" value="AIR" required>
+          </div>
+          <button type="submit" class="btn-submit">💾 Insert Department</button>
+        </form>
 
       </div>
     </div>
 
-    <!-- MIDDLE PANEL: Request Runner -->
+    <!-- MIDDLE PANEL: Live Response Console -->
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">
-          <span>🚀 Request Console</span>
+          <span>📡 API Execution & Response</span>
         </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span id="resStatus" class="http-status status-2xx">READY</span>
+          <span id="resTime" style="font-size:0.75rem; color:var(--text-muted);">0 ms</span>
+        </div>
+      </div>
+      <div class="panel-body" style="padding: 14px;">
+        <pre id="resCode" class="code-viewer">// When you click "Insert into MySQL Database", the live API HTTP response & confirmation will appear here...</pre>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Live Database Inspector -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>🔍 Live MySQL Table Viewer</span>
+        </div>
+        <button class="btn-submit" onclick="fetchSelectedTable()" style="padding:4px 10px; font-size:0.75rem;">🔄 Refresh Table</button>
       </div>
       <div class="panel-body">
-
+        
         <div class="form-group">
-          <label class="form-label">HTTP Method & Path</label>
-          <div class="input-row">
-            <select id="reqMethod" class="select-method">
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-            </select>
-            <input type="text" id="reqPath" class="input-endpoint" value="/api/health">
-          </div>
+          <label class="form-label">Select Database Table to Inspect:</label>
+          <select id="dbTableSelect" onchange="fetchSelectedTable()">
+            <option value="/api/employees">employees (Employees Master)</option>
+            <option value="/api/attendance">attendances (Clock In/Out Log)</option>
+            <option value="/api/org/departments">departments (Departments)</option>
+            <option value="/api/contracts">contracts (Employee Contracts)</option>
+            <option value="/api/salary-structures">salary_structures (Pay Formulas)</option>
+            <option value="/api/working-schedules">working_schedules (Shifts & Hours)</option>
+          </select>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">JSON Request Body</label>
-          <textarea id="reqBody" placeholder="{}"></textarea>
+        <div class="db-table-container">
+          <table class="db-table" id="dbTable">
+            <thead>
+              <tr id="dbTableHeader">
+                <th>ID</th>
+                <th>Code</th>
+                <th>Name / Details</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody id="dbTableBody">
+              <tr>
+                <td colspan="4" style="text-align:center; color:var(--text-muted);">Select table or click Refresh...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <button class="btn-send" onclick="sendRequest()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-          Send Request
-        </button>
-
-        <div class="form-group" style="margin-top: 10px;">
-          <label class="form-label">Automated Test Results</label>
-          <div id="suiteContainer" class="suite-results">
-            <div style="font-size: 0.8rem; color: var(--text-muted);">Click "⚡ Run Test Suite" in the header to run all API checks automatically.</div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- RIGHT PANEL: Response Viewer -->
-    <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">
-          <span>📡 Live Response</span>
-        </div>
-        <div class="response-meta">
-          <span id="resStatus" class="http-status status-2xx">---</span>
-          <span id="resTime" class="response-time">0 ms</span>
-        </div>
-      </div>
-      <div class="panel-body" style="padding: 12px;">
-        <pre id="resCode" class="code-viewer">// Response output will appear here...</pre>
       </div>
     </div>
   </main>
 
   <script>
+    // Set default dates to today
+    document.getElementById('attDate').valueAsDate = new Date();
+    document.getElementById('leaveStart').valueAsDate = new Date();
+    document.getElementById('leaveEnd').valueAsDate = new Date(Date.now() + 86400000 * 2);
+
+    function showForm(formId, btn) {
+      ['formEmployee', 'formAttendance', 'formLeave', 'formDept'].forEach(id => {
+        document.getElementById(id).style.display = (id === formId) ? 'flex' : 'none';
+      });
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
     async function checkHealth() {
       const baseUrl = document.getElementById('baseUrl').value;
       const dot = document.getElementById('statusDot');
@@ -658,7 +613,7 @@
         const res = await fetch(`${baseUrl}/api/health`);
         if (res.ok) {
           dot.className = 'status-dot online';
-          text.innerText = 'Backend Online';
+          text.innerText = 'Backend & MySQL Connected';
         } else {
           dot.className = 'status-dot offline';
           text.innerText = 'Backend Error';
@@ -669,118 +624,111 @@
       }
     }
 
-    function selectEndpoint(method, path, body = null) {
-      document.getElementById('reqMethod').value = method;
-      document.getElementById('reqPath').value = path;
-      document.getElementById('reqBody').value = body ? JSON.stringify(body, null, 2) : '';
-    }
-
-    async function quickLogin(email, password) {
-      selectEndpoint('POST', '/api/auth/login', { email, password });
-      await sendRequest();
-      
-      const codeElem = document.getElementById('resCode');
-      try {
-        const data = JSON.parse(codeElem.innerText);
-        if (data.token) {
-          document.getElementById('authToken').value = data.token;
-        }
-      } catch(e){}
-    }
-
-    async function sendRequest() {
+    async function submitForm(event, endpoint, targetTable) {
+      event.preventDefault();
       const baseUrl = document.getElementById('baseUrl').value;
-      const method = document.getElementById('reqMethod').value;
-      const path = document.getElementById('reqPath').value;
-      const bodyText = document.getElementById('reqBody').value;
-      const token = document.getElementById('authToken').value;
-
+      const codeElem = document.getElementById('resCode');
       const statusElem = document.getElementById('resStatus');
       const timeElem = document.getElementById('resTime');
-      const codeElem = document.getElementById('resCode');
 
-      codeElem.innerText = 'Sending request...';
+      codeElem.innerText = 'Sending entry to backend & MySQL database...';
       const startTime = performance.now();
 
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      }
-
-      const options = { method, headers };
-      if (['POST', 'PUT', 'PATCH'].includes(method) && bodyText.trim()) {
-        try {
-          options.body = JSON.stringify(JSON.parse(bodyText));
-        } catch (e) {
-          alert('Invalid JSON in Request Body!');
-          return;
-        }
+      let payload = {};
+      if (endpoint === '/api/employees') {
+        payload = {
+          first_name: document.getElementById('empFirst').value,
+          last_name: document.getElementById('empLast').value,
+          email: document.getElementById('empEmail').value,
+          employee_code: document.getElementById('empCode').value,
+          department_id: parseInt(document.getElementById('empDeptId').value, 10),
+          job_position_id: 1,
+          working_schedule_id: 1,
+          employee_type: 'FULL_TIME',
+          joining_date: new Date().toISOString().split('T')[0]
+        };
+      } else if (endpoint === '/api/attendance/check-in') {
+        payload = {
+          employee_id: parseInt(document.getElementById('attEmpId').value, 10),
+          attendance_date: document.getElementById('attDate').value,
+          status: document.getElementById('attStatus').value
+        };
+      } else if (endpoint === '/api/time-off/requests') {
+        payload = {
+          employee_id: parseInt(document.getElementById('leaveEmpId').value, 10),
+          time_off_type_id: parseInt(document.getElementById('leaveTypeId').value, 10),
+          start_date: document.getElementById('leaveStart').value,
+          end_date: document.getElementById('leaveEnd').value,
+          number_of_days: 3.00,
+          reason: 'Interactive HTML Test Request'
+        };
+      } else if (endpoint === '/api/org/departments') {
+        payload = {
+          name: document.getElementById('deptName').value,
+          code: document.getElementById('deptCode').value
+        };
       }
 
       try {
-        const res = await fetch(`${baseUrl}${path}`, options);
+        const res = await fetch(`${baseUrl}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
         const duration = Math.round(performance.now() - startTime);
-        
         statusElem.innerText = `${res.status} ${res.statusText}`;
         statusElem.className = `http-status ${res.status < 300 ? 'status-2xx' : res.status < 500 ? 'status-4xx' : 'status-5xx'}`;
         timeElem.innerText = `${duration} ms`;
 
         const data = await res.json();
         codeElem.innerText = JSON.stringify(data, null, 2);
+
+        // Auto-refresh the MySQL Inspector Table to show newly created entry!
+        fetchSelectedTable();
       } catch (err) {
-        const duration = Math.round(performance.now() - startTime);
         statusElem.innerText = '500 ERROR';
         statusElem.className = 'http-status status-5xx';
-        timeElem.innerText = `${duration} ms`;
-        codeElem.innerText = JSON.stringify({ error: err.message, hint: 'Is backend running on configured base URL?' }, null, 2);
+        codeElem.innerText = JSON.stringify({ error: err.message, hint: 'Ensure backend server is running on http://localhost:4000' }, null, 2);
       }
     }
 
-    async function runAutomatedSuite() {
+    async function fetchSelectedTable() {
       const baseUrl = document.getElementById('baseUrl').value;
-      const container = document.getElementById('suiteContainer');
-      container.innerHTML = '<div style="font-size:0.8rem; color:#818cf8;">Running API test suite...</div>';
+      const endpoint = document.getElementById('dbTableSelect').value;
+      const thead = document.getElementById('dbTableHeader');
+      const tbody = document.getElementById('dbTableBody');
 
-      const tests = [
-        { name: 'Health Check (/api/health)', path: '/api/health', method: 'GET' },
-        { name: 'Employees List (/api/employees)', path: '/api/employees', method: 'GET' },
-        { name: 'Contracts List (/api/contracts)', path: '/api/contracts', method: 'GET' },
-        { name: 'Schedules List (/api/working-schedules)', path: '/api/working-schedules', method: 'GET' },
-        { name: 'Attendance Records (/api/attendance)', path: '/api/attendance', method: 'GET' },
-        { name: 'Salary Structures (/api/salary-structures)', path: '/api/salary-structures', method: 'GET' },
-        { name: 'Departments List (/api/org/departments)', path: '/api/org/departments', method: 'GET' }
-      ];
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#818cf8;">Fetching live rows from MySQL...</td></tr>';
 
-      container.innerHTML = '';
-      for (const t of tests) {
-        const startTime = performance.now();
-        try {
-          const res = await fetch(`${baseUrl}${t.path}`);
-          const duration = Math.round(performance.now() - startTime);
-          const isPass = res.status < 400;
-          
-          const div = document.createElement('div');
-          div.className = `suite-item ${isPass ? 'suite-pass' : 'suite-fail'}`;
-          div.innerHTML = `
-            <span>${t.name}</span>
-            <span style="font-family: var(--font-mono); font-weight:700; color: ${isPass ? '#34d399' : '#f87171'}">${res.status} (${duration}ms)</span>
-          `;
-          container.appendChild(div);
-        } catch (e) {
-          const div = document.createElement('div');
-          div.className = 'suite-item suite-fail';
-          div.innerHTML = `
-            <span>${t.name}</span>
-            <span style="font-family: var(--font-mono); font-weight:700; color: #f87171">FAILED</span>
-          `;
-          container.appendChild(div);
+      try {
+        const res = await fetch(`${baseUrl}${endpoint}`);
+        const data = await res.json();
+        
+        let rows = Array.isArray(data) ? data : (data.data || data.employees || data.contracts || data.departments || []);
+        
+        if (!rows || rows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No records found in this table.</td></tr>';
+          return;
         }
+
+        // Extract column names dynamically
+        const keys = Object.keys(rows[0]).slice(0, 5);
+        thead.innerHTML = keys.map(k => `<th>${k.toUpperCase()}</th>`).join('');
+
+        tbody.innerHTML = rows.map(r => `
+          <tr>
+            ${keys.map(k => `<td>${r[k] !== null && r[k] !== undefined ? (typeof r[k] === 'object' ? JSON.stringify(r[k]) : r[k]) : 'null'}</td>`).join('')}
+          </tr>
+        `).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error fetching database rows: ${e.message}</td></tr>`;
       }
     }
 
-    // Auto health check on load
     setInterval(checkHealth, 5000);
     checkHealth();
+    fetchSelectedTable();
   </script>
 </body>
 </html>
