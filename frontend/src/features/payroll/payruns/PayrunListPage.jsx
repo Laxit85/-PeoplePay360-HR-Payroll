@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, DollarSign, ArrowRight } from 'lucide-react';
 import {
-  getPayruns,
-  getSalaryStructures,
-  fetchEligibleEmployeesForPayrun,
-  createPayrun,
-} from '../../../mockApi/apiHandlers';
+  getPayrunsApi,
+  getSalaryStructuresApi,
+  createPayrunApi,
+} from '../../../api';
 import { DataTable } from '../../../components/data/DataTable';
 import { StatusBadge } from '../../../components/data/StatusBadge';
 import { CurrencyCell } from '../../../components/data/CurrencyCell';
@@ -41,10 +40,30 @@ export function PayrunListPage() {
   const fetchPayruns = async () => {
     setLoading(true);
     try {
-      const [pList, sList] = await Promise.all([getPayruns(), getSalaryStructures()]);
-      setPayruns(pList);
-      setStructures(sList);
-      if (sList.length) setSalaryStructureId(sList[0].id);
+      const [pRes, sRes] = await Promise.all([
+        getPayrunsApi(),
+        getSalaryStructuresApi(),
+      ]);
+
+      const rawPayruns = pRes?.data || pRes || [];
+      const rawStructs = sRes?.data || sRes || [];
+
+      const formattedPayruns = rawPayruns.map((p) => ({
+        id: p.id,
+        name: p.name || `Payrun #${p.id}`,
+        salaryStructureName: p.salary_structure_name || 'Standard Structure',
+        periodStart: p.period_start,
+        periodEnd: p.period_end,
+        totalNetWage: parseFloat(p.total_net_wage || 0),
+        status: p.status || 'DRAFT',
+        employeeCount: p.employee_count || 0
+      }));
+
+      setPayruns(formattedPayruns);
+      setStructures(rawStructs);
+      if (rawStructs.length) setSalaryStructureId(rawStructs[0].id);
+    } catch (err) {
+      console.error('Failed to fetch payruns', err);
     } finally {
       setLoading(false);
     }

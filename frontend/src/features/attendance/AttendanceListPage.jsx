@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, ArrowLeft, Edit3, AlertCircle } from 'lucide-react';
-import { getMockAttendance, correctMockAttendance, getMockEmployeeById } from '../../mockApi/apiHandlers';
+import { getAttendanceLogsApi, getEmployeeByIdApi } from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -31,12 +31,27 @@ export function AttendanceListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [list, emp] = await Promise.all([
-        getMockAttendance(id),
-        id ? getMockEmployeeById(id) : null,
+      const [listRes, empRes] = await Promise.all([
+        getAttendanceLogsApi({ employee_id: id }),
+        id ? getEmployeeByIdApi(id) : Promise.resolve(null),
       ]);
-      setAttendance(list);
-      setEmployee(emp);
+
+      const rawList = listRes?.data || listRes || [];
+      const formattedList = rawList.map((row) => ({
+        id: row.id,
+        employeeId: row.employee_id,
+        employeeName: row.first_name ? `${row.first_name} ${row.last_name || ''}`.trim() : 'Employee',
+        checkIn: row.check_in,
+        checkOut: row.check_out,
+        workedHours: row.worked_hours || 0,
+        status: row.status || 'Present',
+        date: row.attendance_date
+      }));
+
+      setAttendance(formattedList);
+      if (empRes?.data) setEmployee(empRes.data);
+    } catch (err) {
+      console.error('Failed to load attendance', err);
     } finally {
       setLoading(false);
     }

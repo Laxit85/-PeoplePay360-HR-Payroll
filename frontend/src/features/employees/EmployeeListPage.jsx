@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, List as ListIcon, Plus, Search, Users } from 'lucide-react';
-import { getMockEmployees, createMockEmployee } from '../../mockApi/apiHandlers';
+import { getEmployeesApi, createEmployeeApi } from '../../api';
 import { EmployeeKanbanView } from './EmployeeKanbanView';
 import { DataTable } from '../../components/data/DataTable';
 import { Button } from '../../components/ui/Button';
@@ -30,8 +30,24 @@ export function EmployeeListPage() {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const list = await getMockEmployees(search);
-      setEmployees(list);
+      const res = await getEmployeesApi({ search });
+      const rawList = res.data || res || [];
+      const formatted = rawList.map((emp) => ({
+        id: emp.id,
+        name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : (emp.name || 'Employee'),
+        jobTitle: emp.job_position_title || emp.job_title || 'Team Member',
+        department: emp.department_name || emp.department || 'General',
+        workEmail: emp.email || emp.work_email || '',
+        workPhone: emp.phone || emp.work_phone || '',
+        avatarUrl: emp.avatar_url || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
+        counts: {
+          contracts: emp.contract_count || 1,
+          attendance: emp.attendance_count || 0
+        }
+      }));
+      setEmployees(formatted);
+    } catch (err) {
+      console.error('Failed to fetch employees', err);
     } finally {
       setLoading(false);
     }
@@ -45,17 +61,28 @@ export function EmployeeListPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const created = await createMockEmployee({
-        name,
-        jobTitle,
-        department,
-        workEmail,
-        workPhone,
-        employeeType: 'Full-time',
-        company: 'OXP Global Inc.',
+      const nameParts = name.trim().split(' ');
+      const firstName = nameParts[0] || name;
+      const lastName = nameParts.slice(1).join(' ') || 'Employee';
+
+      const res = await createEmployeeApi({
+        first_name: firstName,
+        last_name: lastName,
+        email: workEmail,
+        phone: workPhone,
+        job_title: jobTitle,
+        employee_type: 'FULL_TIME',
+        employment_status: 'ACTIVE'
       });
+
+      const newId = res.data?.id || res.id;
       setIsModalOpen(false);
-      navigate(`/employees/${created.id}`);
+      fetchEmployees();
+      if (newId) {
+        navigate(`/employees/${newId}`);
+      }
+    } catch (err) {
+      console.error('Failed to create employee', err);
     } finally {
       setSaving(false);
     }

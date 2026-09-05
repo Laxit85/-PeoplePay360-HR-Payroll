@@ -14,11 +14,10 @@ import {
   FolderCheck,
 } from 'lucide-react';
 import {
-  getMockDepartments,
-  saveMockDepartment,
-  deleteMockDepartment,
-  getMockEmployees,
-} from '../../mockApi/apiHandlers';
+  getDepartmentsApi,
+  createDepartmentApi,
+  getEmployeesApi,
+} from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -66,15 +65,36 @@ export function DepartmentListPage() {
   const fetchDepartments = async () => {
     setLoading(true);
     try {
-      const [deptList, empList] = await Promise.all([
-        getMockDepartments(),
-        getMockEmployees(),
+      const [deptRes, empRes] = await Promise.all([
+        getDepartmentsApi(),
+        getEmployeesApi(),
       ]);
-      setDepartments(deptList);
-      setEmployees(empList);
-      if (deptList.length > 0) {
-        setEditSelectedId(deptList[0].id);
-        setDeleteSelectedId(deptList[0].id);
+
+      const rawDepts = deptRes.data || deptRes || [];
+      const rawEmps = empRes.data || empRes || [];
+
+      const formattedDepts = rawDepts.map((d) => ({
+        id: d.id,
+        name: d.name,
+        code: d.code,
+        managerName: d.manager_name || 'Unassigned',
+        company: 'PeoplePay360 HRMS',
+        status: d.is_active === 0 ? 'Inactive' : 'Active',
+        headcount: d.employee_count || 0
+      }));
+
+      const formattedEmps = rawEmps.map((e) => ({
+        id: e.id,
+        name: e.first_name ? `${e.first_name} ${e.last_name || ''}`.trim() : (e.name || 'Employee'),
+        jobTitle: e.job_position_title || e.job_title || 'Team Member'
+      }));
+
+      setDepartments(formattedDepts);
+      setEmployees(formattedEmps);
+
+      if (formattedDepts.length > 0) {
+        setEditSelectedId(formattedDepts[0].id);
+        setDeleteSelectedId(formattedDepts[0].id);
       }
     } catch (err) {
       console.error('Error loading departments:', err);
@@ -146,13 +166,9 @@ export function DepartmentListPage() {
 
     setSaving(true);
     try {
-      await saveMockDepartment({
-        id: selectedDept?.id,
+      await createDepartmentApi({
         name: name.trim(),
-        code: code.trim().toUpperCase(),
-        managerName: managerName.trim(),
-        company: company.trim(),
-        status,
+        code: code.trim().toUpperCase()
       });
       setIsModalOpen(false);
       fetchDepartments();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Play, Square } from 'lucide-react';
-import { toggleCheckInOut, getMockAttendance } from '../../mockApi/apiHandlers';
+import { getAttendanceLogsApi, clockInOutApi } from '../../api';
 import { useAuth } from '../../auth/useAuth';
 
 export function CheckInOutWidget() {
@@ -11,14 +11,22 @@ export function CheckInOutWidget() {
   const [loading, setLoading] = useState(false);
   const widgetRef = useRef(null);
 
-  const employeeId = user?.employeeId || 'emp-6';
+  const employeeId = user?.employeeId || 1;
 
   const checkStatus = async () => {
     try {
-      const records = await getMockAttendance(employeeId);
-      const todayStr = new Date().toISOString().split('T')[0];
-      const todaySession = records.find((r) => r.date === todayStr && !r.checkOut);
-      setActiveSession(todaySession || null);
+      const res = await getAttendanceLogsApi({ employee_id: employeeId });
+      const records = res.data || res || [];
+      const todaySession = records.find((r) => !r.check_out);
+      if (todaySession) {
+        setActiveSession({
+          id: todaySession.id,
+          checkIn: todaySession.check_in,
+          checkOut: todaySession.check_out
+        });
+      } else {
+        setActiveSession(null);
+      }
     } catch {
       setActiveSession(null);
     }
@@ -56,9 +64,11 @@ export function CheckInOutWidget() {
   const handleToggle = async () => {
     setLoading(true);
     try {
-      await toggleCheckInOut(employeeId);
+      await clockInOutApi({ employee_id: employeeId });
       await checkStatus();
       setIsOpen(false);
+    } catch (err) {
+      console.error('Failed to toggle check-in/out', err);
     } finally {
       setLoading(false);
     }

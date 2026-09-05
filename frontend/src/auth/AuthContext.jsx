@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { mockLogin, getMockUsers } from '../mockApi/apiHandlers';
+import { loginApi, getMeApi } from '../api';
 import { hasPermission, canAccessModule, ROLES } from './permissions';
 
 const AuthContext = createContext(null);
@@ -15,30 +15,59 @@ export const AuthProvider = ({ children }) => {
       }
     }
     return {
-      id: 'u-1',
+      id: 1,
       name: 'Aarav Sharma (Admin)',
       email: 'admin@oxp.com',
       role: ROLES.ADMIN,
-      employeeId: 'emp-1',
+      employeeId: 1,
       employeeName: 'Aarav Sharma',
-      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
     };
   });
 
-  const [token, setToken] = useState(() => localStorage.getItem('hrms_jwt_token') || 'mock-jwt-token');
+  const [token, setToken] = useState(() => localStorage.getItem('hrms_jwt_token') || null);
   const [availableUsers, setAvailableUsers] = useState([]);
 
   useEffect(() => {
-    getMockUsers().then(setAvailableUsers).catch(() => {});
-  }, []);
+    if (token) {
+      getMeApi()
+        .then((res) => {
+          if (res.success && res.user) {
+            const formattedUser = {
+              id: res.user.id,
+              name: res.user.employee ? `${res.user.employee.first_name} ${res.user.employee.last_name}` : res.user.email,
+              email: res.user.email,
+              role: res.user.role || ROLES.ADMIN,
+              employeeId: res.user.employee ? res.user.employee.id : null,
+              employeeName: res.user.employee ? `${res.user.employee.first_name} ${res.user.employee.last_name}` : null
+            };
+            setUser(formattedUser);
+            localStorage.setItem('hrms_current_user', JSON.stringify(formattedUser));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [token]);
 
   const login = async (email, password) => {
-    const res = await mockLogin(email, password);
-    setUser(res.user);
-    setToken(res.token);
-    localStorage.setItem('hrms_current_user', JSON.stringify(res.user));
-    localStorage.setItem('hrms_jwt_token', res.token);
-    return res.user;
+    const res = await loginApi(email, password);
+    if (res.success) {
+      const u = res.user;
+      const formattedUser = {
+        id: u.id,
+        name: u.employee ? `${u.employee.first_name} ${u.employee.last_name}` : u.email,
+        email: u.email,
+        role: u.role || ROLES.ADMIN,
+        employeeId: u.employee ? u.employee.id : null,
+        employeeName: u.employee ? `${u.employee.first_name} ${u.employee.last_name}` : null
+      };
+      setUser(formattedUser);
+      setToken(res.token);
+      localStorage.setItem('hrms_current_user', JSON.stringify(formattedUser));
+      localStorage.setItem('hrms_jwt_token', res.token);
+      return formattedUser;
+    } else {
+      throw new Error(res.message || 'Login failed');
+    }
   };
 
   const logout = () => {

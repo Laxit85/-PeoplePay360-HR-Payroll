@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Calendar, AlertCircle } from 'lucide-react';
 import {
-  getTimeOffRequests,
-  getTimeOffTypes,
-  createTimeOffRequest,
-  updateTimeOffStatus,
-  getMockEmployees,
-} from '../../mockApi/apiHandlers';
+  getTimeOffRequestsApi,
+  getTimeOffTypesApi,
+  createTimeOffRequestApi,
+  updateTimeOffStatusApi,
+  getEmployeesApi,
+} from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -30,7 +30,7 @@ export function RequestsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
-  const [employeeId, setEmployeeId] = useState(user?.employeeId || 'emp-6');
+  const [employeeId, setEmployeeId] = useState(user?.employeeId || 1);
   const [timeOffTypeId, setTimeOffTypeId] = useState('');
   const [startDate, setStartDate] = useState('2026-09-15');
   const [endDate, setEndDate] = useState('2026-09-17');
@@ -42,15 +42,40 @@ export function RequestsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [rList, tList, eList] = await Promise.all([
-        getTimeOffRequests(empFilter),
-        getTimeOffTypes(),
-        getMockEmployees(),
+      const [rRes, tRes, eRes] = await Promise.all([
+        getTimeOffRequestsApi({ employee_id: empFilter }),
+        getTimeOffTypesApi(),
+        getEmployeesApi(),
       ]);
-      setRequests(rList);
-      setTypes(tList);
-      setEmployees(eList);
-      if (tList.length) setTimeOffTypeId(tList[0].id);
+
+      const rawReqs = rRes?.data || rRes || [];
+      const rawTypes = tRes?.data || tRes || [];
+      const rawEmps = eRes?.data || eRes || [];
+
+      const formattedReqs = rawReqs.map((r) => ({
+        id: r.id,
+        employeeId: r.employee_id,
+        employeeName: r.first_name ? `${r.first_name} ${r.last_name || ''}`.trim() : 'Employee',
+        timeOffTypeId: r.time_off_type_id,
+        timeOffTypeName: r.time_off_type_name || 'Leave',
+        startDate: r.start_date,
+        endDate: r.end_date,
+        numberOfDays: r.requested_days || 1,
+        status: r.status || 'SUBMITTED',
+        reason: r.reason
+      }));
+
+      const formattedEmps = rawEmps.map((e) => ({
+        id: e.id,
+        name: e.first_name ? `${e.first_name} ${e.last_name || ''}`.trim() : 'Employee'
+      }));
+
+      setRequests(formattedReqs);
+      setTypes(rawTypes);
+      setEmployees(formattedEmps);
+      if (rawTypes.length) setTimeOffTypeId(rawTypes[0].id);
+    } catch (err) {
+      console.error('Failed to load leave requests', err);
     } finally {
       setLoading(false);
     }

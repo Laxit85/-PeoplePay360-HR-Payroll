@@ -8,7 +8,7 @@ import {
   Save,
   ArrowLeft,
 } from 'lucide-react';
-import { getMockEmployeeById, updateMockEmployee } from '../../mockApi/apiHandlers';
+import { getEmployeeByIdApi, updateEmployeeApi } from '../../api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -29,9 +29,19 @@ export function EmployeeFormPage() {
   const fetchEmployee = async () => {
     setLoading(true);
     try {
-      const data = await getMockEmployeeById(id);
-      setEmployee(data);
-      setFormData(data);
+      const res = await getEmployeeByIdApi(id);
+      const data = res.data || res;
+      const formatted = {
+        ...data,
+        name: data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : (data.name || 'Employee'),
+        jobTitle: data.job_position_title || data.job_title || 'Team Member',
+        department: data.department_name || data.department || 'General',
+        workEmail: data.email || data.work_email || '',
+        workPhone: data.phone || data.work_phone || '',
+        avatarUrl: data.avatar_url || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
+      };
+      setEmployee(formatted);
+      setFormData(formatted);
     } catch {
       navigate('/employees');
     } finally {
@@ -61,8 +71,20 @@ export function EmployeeFormPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateMockEmployee(id, formData);
+      const nameParts = (formData.name || '').trim().split(' ');
+      const firstName = nameParts[0] || formData.first_name || '';
+      const lastName = nameParts.slice(1).join(' ') || formData.last_name || '';
+
+      await updateEmployeeApi(id, {
+        first_name: firstName,
+        last_name: lastName,
+        email: formData.workEmail || formData.email,
+        phone: formData.workPhone || formData.phone,
+        job_title: formData.jobTitle || formData.job_title
+      });
       await fetchEmployee();
+    } catch (err) {
+      console.error('Failed to update employee', err);
     } finally {
       setSaving(false);
     }
