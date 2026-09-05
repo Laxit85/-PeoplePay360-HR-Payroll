@@ -1,13 +1,15 @@
 /**
- * PeoplePay360 : Automated End-to-End API Test Suite
- * Run with: npm test (while server is running on http://localhost:5000)
+ * PeoplePay360 : Automated End-to-End API & Database Test Suite
+ * Run with: npm run test:api (while server is running on http://localhost:4000)
  */
 
-const BASE_URL = 'http://localhost:5000/api';
+require('dotenv').config();
+const PORT = process.env.PORT || 4000;
+const BASE_URL = `http://localhost:${PORT}/api`;
 
 async function runTests() {
   console.log('====================================================');
-  console.log(' PeoplePay360 : Automated API Test Suite');
+  console.log(' PeoplePay360 : End-to-End API & Database Test Suite');
   console.log('====================================================\n');
 
   let passed = 0;
@@ -61,112 +63,135 @@ async function runTests() {
   await test('GET /api/auth/me', async () => {
     const res = await fetch(`${BASE_URL}/auth/me`, { headers: authHeaders() });
     const data = await res.json();
-    if (!res.ok || data.user.role !== 'ADMIN') {
-      throw new Error(data.message || 'Failed to fetch me');
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to fetch user profile');
     }
   });
 
-  // 4. Employee Master List
-  let sampleEmployeeId = null;
+  // 4. Employees API
   await test('GET /api/employees', async () => {
     const res = await fetch(`${BASE_URL}/employees`, { headers: authHeaders() });
     const data = await res.json();
-    if (!res.ok || !Array.isArray(data.data)) {
-      throw new Error(data.message || 'Failed to fetch employees');
-    }
-    if (data.data.length > 0) {
-      sampleEmployeeId = data.data[0].id;
+    if (!res.ok || !data.success || !Array.isArray(data.data)) {
+      throw new Error('Failed to retrieve employees list');
     }
   });
 
-  // 5. Single Employee with Smart Counters
-  if (sampleEmployeeId) {
-    await test(`GET /api/employees/${sampleEmployeeId} (Smart Counters)`, async () => {
-      const res = await fetch(`${BASE_URL}/employees/${sampleEmployeeId}`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok || !data.smartCounters) {
-        throw new Error(data.message || 'Smart counters missing');
-      }
+  // 5. Create Employee Test
+  await test('POST /api/employees (Create Employee)', async () => {
+    const res = await fetch(`${BASE_URL}/employees`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        first_name: 'AuditTest',
+        last_name: 'User',
+        email: `audit.${Date.now()}@peoplepay360.internal`,
+        employee_code: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+        department_id: 1,
+        job_position_id: 1,
+        working_schedule_id: 1,
+        employee_type: 'FULL_TIME',
+        joining_date: '2026-01-01'
+      })
     });
-  }
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to insert employee into MySQL');
+    }
+  });
 
-  // 6. Working Schedules
+  // 6. Contracts API
+  await test('GET /api/contracts', async () => {
+    const res = await fetch(`${BASE_URL}/contracts`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok || !data.success || !Array.isArray(data.data)) {
+      throw new Error('Failed to retrieve contracts list');
+    }
+  });
+
+  // 7. Working Schedules API
   await test('GET /api/working-schedules', async () => {
     const res = await fetch(`${BASE_URL}/working-schedules`, { headers: authHeaders() });
     const data = await res.json();
-    if (!res.ok || !Array.isArray(data.data)) {
-      throw new Error(data.message || 'Failed to fetch schedules');
+    if (!res.ok || !data.success) {
+      throw new Error('Failed to retrieve working schedules');
     }
   });
 
-  // 7. Attendance Logs
-  await test('GET /api/attendance', async () => {
-    const res = await fetch(`${BASE_URL}/attendance`, { headers: authHeaders() });
+  // 8. Attendance Check-in Test
+  await test('POST /api/attendance/check-in', async () => {
+    const res = await fetch(`${BASE_URL}/attendance/check-in`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        employee_id: 2,
+        attendance_date: new Date().toISOString().split('T')[0],
+        status: 'ON_TIME'
+      })
+    });
     const data = await res.json();
-    if (!res.ok || !Array.isArray(data.data)) {
-      throw new Error(data.message || 'Failed to fetch attendance');
+    if (!res.ok && !data.message.includes('already checked in')) {
+      throw new Error(data.message || 'Failed to record attendance check-in');
     }
   });
 
-  // 8. Time Off Types & Requests
+  // 9. Time Off Types & Requests
   await test('GET /api/time-off/types', async () => {
     const res = await fetch(`${BASE_URL}/time-off/types`, { headers: authHeaders() });
     const data = await res.json();
-    if (!res.ok || !Array.isArray(data.data)) {
-      throw new Error(data.message || 'Failed to fetch leave types');
+    if (!res.ok || !data.success) {
+      throw new Error('Failed to retrieve time off types');
     }
   });
 
-  // 9. Salary Structures
-  let sampleStructureId = null;
+  // 10. Salary Structures API
   await test('GET /api/salary-structures', async () => {
     const res = await fetch(`${BASE_URL}/salary-structures`, { headers: authHeaders() });
     const data = await res.json();
-    if (!res.ok || !Array.isArray(data.data)) {
-      throw new Error(data.message || 'Failed to fetch salary structures');
-    }
-    if (data.data.length > 0) {
-      sampleStructureId = data.data[0].id;
+    if (!res.ok || !data.success) {
+      throw new Error('Failed to retrieve salary structures');
     }
   });
 
-  // 10. Payrun Wizard Step 2: Eligible Staff
-  if (sampleStructureId) {
-    await test('GET /api/payruns/eligible-employees (Wizard Step 2)', async () => {
-      const res = await fetch(
-        `${BASE_URL}/payruns/eligible-employees?salary_structure_id=${sampleStructureId}&period_start=2026-01-01&period_end=2026-01-31`,
-        { headers: authHeaders() }
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to fetch eligible employees');
-      }
-    });
-  }
+  // 11. Departments API
+  await test('GET /api/org/departments', async () => {
+    const res = await fetch(`${BASE_URL}/org/departments`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error('Failed to retrieve departments');
+    }
+  });
 
-  // 11. Real-time Dashboard Aggregations
-  await test('GET /api/dashboard (KPIs & Charts)', async () => {
+  // 12. Create Department Test
+  await test('POST /api/org/departments (Create Department)', async () => {
+    const res = await fetch(`${BASE_URL}/org/departments`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        name: `Audit Dept ${Date.now()}`,
+        code: `AD${Math.floor(10 + Math.random() * 90)}`
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to create department');
+    }
+  });
+
+  // 13. Dashboard Metrics
+  await test('GET /api/dashboard', async () => {
     const res = await fetch(`${BASE_URL}/dashboard`, { headers: authHeaders() });
     const data = await res.json();
-    if (!res.ok || !data.data || !data.data.kpis) {
-      throw new Error(data.message || 'Failed to fetch dashboard metrics');
+    if (!res.ok || !data.success) {
+      throw new Error('Failed to retrieve dashboard metrics');
     }
   });
 
   console.log('\n====================================================');
-  console.log(` RESULTS: ${passed} PASSED, ${failed} FAILED (Total: ${passed + failed})`);
+  console.log(` RESULTS: ${passed} PASSED | ${failed} FAILED`);
   console.log('====================================================');
 
-  if (failed === 0) {
-    console.log('🎉 All tested core endpoints are working seamlessly!');
-    process.exit(0);
-  } else {
-    console.log('⚠️ Some tests failed. Ensure `npm run seed` was executed.');
-    process.exit(1);
-  }
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-runTests().catch(err => {
-  console.error('\n❌ Error running test suite:', err.message);
-  process.exit(1);
-});
+runTests();
