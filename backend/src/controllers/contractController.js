@@ -78,18 +78,14 @@ exports.createContract = async (req, res) => {
       status
     } = req.body;
 
-    // Concurrency Rule: If creating as ACTIVE, ensure no other active contract exists
-    if (status === 'ACTIVE') {
-      const [existingActive] = await pool.execute(
-        `SELECT id, reference_name FROM contracts WHERE employee_id = ? AND status = 'ACTIVE'`,
+    const normalizedStatus = (status === 'Running' || status === 'ACTIVE') ? 'ACTIVE' : (status || 'DRAFT');
+
+    // Concurrency Rule: If creating as ACTIVE, transition any previous active contracts to EXPIRED
+    if (normalizedStatus === 'ACTIVE') {
+      await pool.execute(
+        `UPDATE contracts SET status = 'EXPIRED' WHERE employee_id = ? AND status IN ('ACTIVE', 'Running')`,
         [employee_id]
       );
-      if (existingActive.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Employee already has an active contract (${existingActive[0].reference_name}). Please expire or terminate it first.`
-        });
-      }
     }
 
     const [result] = await pool.execute(
@@ -98,15 +94,15 @@ exports.createContract = async (req, res) => {
         wage, wage_type, start_date, end_date, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        employee_id, reference_name, salary_structure_id, working_schedule_id || null,
-        wage, wage_type || 'MONTHLY', start_date, end_date || null, status || 'DRAFT'
+        employee_id, reference_name || 'Employment Contract', salary_structure_id, working_schedule_id || null,
+        wage, wage_type || 'MONTHLY', start_date, end_date || null, normalizedStatus
       ]
     );
 
     res.status(201).json({
       success: true,
       message: 'Contract created successfully',
-      data: { id: result.insertId, ...req.body }
+      data: { id: result.insertId, ...req.body, status: normalizedStatus }
     });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -128,20 +124,16 @@ exports.updateContract = async (req, res) => {
       status
     } = req.body;
 
-    // If changing to ACTIVE, ensure no other active contract exists
-    if (status === 'ACTIVE') {
+    const normalizedStatus = status ? ((status === 'Running' || status === 'ACTIVE') ? 'ACTIVE' : status) : undefined;
+
+    // If changing to ACTIVE, transition other active contracts to EXPIRED
+    if (normalizedStatus === 'ACTIVE') {
       const [[current]] = await pool.execute('SELECT employee_id FROM contracts WHERE id = ?', [contractId]);
       if (current) {
-        const [otherActive] = await pool.execute(
-          `SELECT id, reference_name FROM contracts WHERE employee_id = ? AND status = 'ACTIVE' AND id != ?`,
+        await pool.execute(
+          `UPDATE contracts SET status = 'EXPIRED' WHERE employee_id = ? AND status IN ('ACTIVE', 'Running') AND id != ?`,
           [current.employee_id, contractId]
         );
-        if (otherActive.length > 0) {
-          return res.status(400).json({
-            success: false,
-            message: `Employee already has another active contract (${otherActive[0].reference_name}).`
-          });
-        }
       }
     }
 

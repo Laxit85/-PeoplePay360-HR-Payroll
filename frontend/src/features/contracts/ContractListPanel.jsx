@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, FileText, ArrowLeft, AlertCircle } from 'lucide-react';
-import { getMockContracts, saveMockContract, getMockSchedules, getSalaryStructures, getMockEmployeeById } from '../../mockApi/apiHandlers';
+import {
+  getContractsApi,
+  createContractApi,
+  updateContractApi,
+  getWorkShiftsApi,
+  getSalaryStructuresApi,
+  getEmployeeByIdApi,
+} from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { CurrencyCell } from '../../components/data/CurrencyCell';
@@ -32,26 +39,55 @@ export function ContractListPanel() {
   const [wage, setWage] = useState(7500);
   const [workingScheduleId, setWorkingScheduleId] = useState('');
   const [salaryStructureId, setSalaryStructureId] = useState('');
-  const [status, setStatus] = useState('Running'); // Running, Draft, Expired, Terminated
+  const [status, setStatus] = useState('ACTIVE'); // ACTIVE, DRAFT, EXPIRED, TERMINATED
   const [errorMessage, setErrorMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [cList, sList, stList, emp] = await Promise.all([
-        getMockContracts(id),
-        getMockSchedules(),
-        getSalaryStructures(),
-        id ? getMockEmployeeById(id) : null,
+      const [cRes, sRes, stRes, empRes] = await Promise.all([
+        getContractsApi({ employee_id: id }),
+        getWorkShiftsApi(),
+        getSalaryStructuresApi(),
+        id ? getEmployeeByIdApi(id) : Promise.resolve(null),
       ]);
-      setContracts(cList);
-      setSchedules(sList);
-      setStructures(stList);
-      setEmployee(emp);
-      if (sList.length) setWorkingScheduleId(sList[0].id);
-      if (stList.length) setSalaryStructureId(stList[0].id);
-      if (emp) setJobPosition(emp.jobTitle);
+
+      const rawContracts = cRes?.data || cRes || [];
+      const rawSchedules = sRes?.data || sRes || [];
+      const rawStructs = stRes?.data || stRes || [];
+      const empData = empRes?.data || empRes;
+
+      const formattedContracts = rawContracts.map((c) => ({
+        id: c.id,
+        employeeId: c.employee_id,
+        employeeName: c.first_name ? `${c.first_name} ${c.last_name || ''}`.trim() : 'Employee',
+        jobPosition: c.job_position_title || c.reference_name || 'Software Engineer',
+        referenceName: c.reference_name,
+        startDate: c.start_date,
+        endDate: c.end_date,
+        wage: parseFloat(c.wage || 0),
+        workingScheduleId: c.working_schedule_id,
+        salaryStructureId: c.salary_structure_id,
+        status: c.status === 'ACTIVE' ? 'Running' : c.status
+      }));
+
+      setContracts(formattedContracts);
+      setSchedules(rawSchedules);
+      setStructures(rawStructs);
+      if (empData) {
+        setEmployee({
+          id: empData.id,
+          name: empData.first_name ? `${empData.first_name} ${empData.last_name || ''}`.trim() : 'Employee',
+          jobTitle: empData.job_position_title || empData.job_title || 'Software Engineer'
+        });
+      }
+
+      if (rawSchedules.length) setWorkingScheduleId(rawSchedules[0].id);
+      if (rawStructs.length) setSalaryStructureId(rawStructs[0].id);
+      if (empData) setJobPosition(empData.job_position_title || empData.job_title || 'Software Engineer');
+    } catch (err) {
+      console.error('Failed to load contract details', err);
     } finally {
       setLoading(false);
     }
@@ -65,7 +101,7 @@ export function ContractListPanel() {
     setSelectedContract(null);
     setJobPosition(employee?.jobTitle || 'Software Engineer');
     setWage(7500);
-    setStatus('Running');
+    setStatus('ACTIVE');
     setErrorMessage('');
     setIsModalOpen(true);
   };
@@ -73,12 +109,12 @@ export function ContractListPanel() {
   const handleOpenEdit = (c) => {
     setSelectedContract(c);
     setJobPosition(c.jobPosition);
-    setStartDate(c.startDate);
-    setEndDate(c.endDate);
+    setStartDate(c.startDate ? c.startDate.substring(0, 10) : '2026-01-01');
+    setEndDate(c.endDate ? c.endDate.substring(0, 10) : '2026-12-31');
     setWage(c.wage);
-    setWorkingScheduleId(c.workingScheduleId);
-    setSalaryStructureId(c.salaryStructureId);
-    setStatus(c.status);
+    setWorkingScheduleId(c.workingScheduleId || '');
+    setSalaryStructureId(c.salaryStructureId || '');
+    setStatus(c.status === 'Running' ? 'ACTIVE' : c.status);
     setErrorMessage('');
     setIsModalOpen(true);
   };
@@ -88,21 +124,29 @@ export function ContractListPanel() {
     setErrorMessage('');
     setSaving(true);
     try {
-      await saveMockContract({
-        id: selectedContract?.id,
-        employeeId: id || selectedContract?.employeeId || 'emp-6',
-        jobPosition,
-        startDate,
-        endDate,
+      const payload = {
+        employee_id: id || selectedContract?.employeeId || 1,
+        reference_name: jobPosition,
+        startDate: startDate,
+        start_date: startDate,
+        endDate: endDate,
+        end_date: endDate,
         wage: Number(wage),
-        workingScheduleId,
-        salaryStructureId,
-        status,
-      });
+        working_schedule_id: workingScheduleId || null,
+        salary_structure_id: salaryStructureId || 1,
+        status: status === 'Running' ? 'ACTIVE' : status
+      };
+
+      if (selectedContract?.id) {
+        await updateContractApi(selectedContract.id, payload);
+      } else {
+        await createContractApi(payload);
+      }
+
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
-      setErrorMessage(err.message || 'Validation error saving contract');
+      setErrorMessage(err.response?.data?.message || err.message || 'Validation error saving contract');
     } finally {
       setSaving(false);
     }
