@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const bcrypt = require('bcryptjs');
 
 // GET /api/employees (with filters and search)
 exports.getEmployees = async (req, res) => {
@@ -64,12 +65,12 @@ exports.getEmployeeById = async (req, res) => {
         ws.name AS working_schedule_name,
         ws.total_weekly_hours,
         CONCAT(m.first_name, ' ', m.last_name) AS manager_name
-       FROM employees e
-       LEFT JOIN departments d ON e.department_id = d.id
-       LEFT JOIN job_positions jp ON e.job_position_id = jp.id
-       LEFT JOIN working_schedules ws ON e.working_schedule_id = ws.id
-       LEFT JOIN employees m ON e.manager_id = m.id
-       WHERE e.id = ?`,
+      FROM employees e
+      LEFT JOIN departments d ON e.department_id = d.id
+      LEFT JOIN job_positions jp ON e.job_position_id = jp.id
+      LEFT JOIN working_schedules ws ON e.working_schedule_id = ws.id
+      LEFT JOIN employees m ON e.manager_id = m.id
+      WHERE e.id = ?`,
       [employeeId]
     );
 
@@ -79,7 +80,7 @@ exports.getEmployeeById = async (req, res) => {
 
     const employee = employees[0];
 
-    // Smart-button counts
+    // Smart Counters
     const [[{ contracts_count }]] = await pool.execute(
       'SELECT COUNT(*) AS contracts_count FROM contracts WHERE employee_id = ?',
       [employeeId]
@@ -128,7 +129,7 @@ exports.getEmployeeById = async (req, res) => {
   }
 };
 
-// POST /api/employees
+// POST /api/employees (Auto-links or creates linked User account if user_id is not passed)
 exports.createEmployee = async (req, res) => {
   try {
     const {
@@ -151,6 +152,25 @@ exports.createEmployee = async (req, res) => {
       user_id
     } = req.body;
 
+    let assignedUserId = user_id || null;
+
+    // If user_id is not explicitly passed, auto-link or auto-create user login account
+    if (!assignedUserId && email) {
+      const [existingUser] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
+      if (existingUser.length > 0) {
+        assignedUserId = existingUser[0].id;
+      } else {
+        // Auto-create user account with default role EMPLOYEE (role_id: 5)
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash('Employee123!', salt);
+        const [newUser] = await pool.execute(
+          'INSERT INTO users (email, password_hash, role_id) VALUES (?, ?, ?)',
+          [email, passwordHash, 5]
+        );
+        assignedUserId = newUser.insertId;
+      }
+    }
+
     const [result] = await pool.execute(
       `INSERT INTO employees (
         employee_code, first_name, last_name, email, phone,
@@ -160,17 +180,21 @@ exports.createEmployee = async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         employee_code, first_name, last_name, email, phone || null,
-        department_id, job_position_id, manager_id || null, working_schedule_id || null,
-        employee_type || 'FULL_TIME', employment_status || 'ACTIVE', joining_date,
+        department_id || 1, job_position_id || 1, manager_id || null, working_schedule_id || 1,
+        employee_type || 'FULL_TIME', employment_status || 'ACTIVE', joining_date || new Date().toISOString().split('T')[0],
         bank_name || null, bank_account_no || null, bank_ifsc_or_routing || null, tax_id_or_pan || null,
-        user_id || null
+        assignedUserId
       ]
     );
 
     res.status(201).json({
       success: true,
-      message: 'Employee created successfully',
-      data: { id: result.insertId, ...req.body }
+      message: 'Employee created successfully and linked to User account',
+      data: {
+        id: result.insertId,
+        user_id: assignedUserId,
+        ...req.body
+      }
     });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -181,51 +205,33 @@ exports.createEmployee = async (req, res) => {
 exports.updateEmployee = async (req, res) => {
   try {
     const employeeId = req.params.id;
-    const {
-      first_name,
-      last_name,
-      email,
-      phone,
-      department_id,
-      job_position_id,
-      manager_id,
-      working_schedule_id,
-      employee_type,
-      employment_status,
-      joining_date,
-      bank_name,
-      bank_account_no,
-      bank_ifsc_or_routing,
-      tax_id_or_pan
-    } = req.body;
+    const fields = req.body;
 
-    await pool.execute(
-      `UPDATE employees SET
-        first_name = COALESCE(?, first_name),
-        last_name = COALESCE(?, last_name),
-        email = COALESCE(?, email),
-        phone = COALESCE(?, phone),
-        department_id = COALESCE(?, department_id),
-        job_position_id = COALESCE(?, job_position_id),
-        manager_id = ?,
-        working_schedule_id = ?,
-        employee_type = COALESCE(?, employee_type),
-        employment_status = COALESCE(?, employment_status),
-        joining_date = COALESCE(?, joining_date),
-        bank_name = ?,
-        bank_account_no = ?,
-        bank_ifsc_or_routing = ?,
-        tax_id_or_pan = ?
-       WHERE id = ?`,
-      [
-        first_name, last_name, email, phone, department_id, job_position_id,
-        manager_id || null, working_schedule_id || null,
-        employee_type, employment_status, joining_date,
-        bank_name || null, bank_account_no || null, bank_ifsc_or_routing || null, tax_id_or_pan || null,
-        employeeId
-      ]
-    );
+    const allowedFields = [
+      'first_name', 'last_name', 'email', 'phone', 'department_id',
+      'job_position_id', 'manager_id', 'working_schedule_id', 'employee_type',
+      'employment_status', 'joining_date', 'bank_name', 'bank_account_no',
+      'bank_ifsc_or_routing', 'tax_id_or_pan', 'user_id'
+    ];
 
+    const updates = [];
+    const values = [];
+
+    for (const [key, val] of Object.entries(fields)) {
+      if (allowedFields.includes(key)) {
+        updates.push(`${key} = ?`);
+        values.push(val);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid fields provided to update' });
+    }
+
+    values.push(employeeId);
+    const query = `UPDATE employees SET ${updates.join(', ')} WHERE id = ?`;
+
+    await pool.execute(query, values);
     res.status(200).json({ success: true, message: 'Employee updated successfully' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -235,9 +241,10 @@ exports.updateEmployee = async (req, res) => {
 // DELETE /api/employees/:id
 exports.deleteEmployee = async (req, res) => {
   try {
-    await pool.execute('DELETE FROM employees WHERE id = ?', [req.params.id]);
+    const employeeId = req.params.id;
+    await pool.execute('DELETE FROM employees WHERE id = ?', [employeeId]);
     res.status(200).json({ success: true, message: 'Employee deleted successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
