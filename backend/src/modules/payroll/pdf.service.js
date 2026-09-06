@@ -18,14 +18,14 @@ async function generatePayslipPdf(payslip, employee) {
     doc.fontSize(18).text('Payslip', { align: 'center' });
     doc.moveDown();
     doc.fontSize(12).text(`Employee: ${employee.full_name}`);
-    doc.text(`Gross Pay: ${payslip.gross_pay}`);
-    doc.text(`Net Pay: ${payslip.net_pay}`);
+    doc.text(`Gross Pay: Rs. ${payslip.gross_pay}`);
+    doc.text(`Net Pay: Rs. ${payslip.net_pay}`);
     doc.moveDown();
     doc.text('Breakdown:');
 
     const breakdown = JSON.parse(payslip.computation_json || '[]');
     breakdown.forEach((line) => {
-      doc.text(`  ${line.label} (${line.code}): ${line.amount}`);
+      doc.text(`  ${line.label} (${line.code}): Rs. ${line.amount}`);
     });
 
     doc.end();

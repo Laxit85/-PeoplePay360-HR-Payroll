@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Clock } from 'lucide-react';
-import { getMockSchedules, saveMockSchedule } from '../../mockApi/apiHandlers';
+import { Plus, Clock, Trash2, Edit } from 'lucide-react';
+import { getMockSchedules, saveMockSchedule, deleteMockSchedule } from '../../mockApi/apiHandlers';
 import { DataTable } from '../../components/data/DataTable';
 import { StatusBadge } from '../../components/data/StatusBadge';
 import { Button } from '../../components/ui/Button';
@@ -10,7 +10,7 @@ import { Select } from '../../components/ui/Select';
 import { useAuth } from '../../auth/useAuth';
 
 export function ScheduleListPage() {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,6 +24,15 @@ export function ScheduleListPage() {
   const [company, setCompany] = useState('OXP Global Inc.');
   const [status, setStatus] = useState('Active');
   const [saving, setSaving] = useState(false);
+
+  const canManage =
+    can('schedules.manage') ||
+    can('schedules.delete') ||
+    can('contracts.manage') ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'HR_MANAGER' ||
+    user?.role === 'HR_PAYROLL_MANAGER' ||
+    user?.role === 'HR_PAYROLL_USER';
 
   const fetchSchedules = async () => {
     setLoading(true);
@@ -45,18 +54,19 @@ export function ScheduleListPage() {
     setCalendarType('Standard 40h');
     setDaysPerWeek(5);
     setHoursPerWeek(40);
+    setCompany('OXP Global Inc.');
     setStatus('Active');
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (s) => {
     setSelectedSchedule(s);
-    setName(s.name);
-    setCalendarType(s.calendarType);
-    setDaysPerWeek(s.daysPerWeek);
-    setHoursPerWeek(s.hoursPerWeek);
-    setCompany(s.company);
-    setStatus(s.status);
+    setName(s.name || '');
+    setCalendarType(s.calendarType || 'Standard 40h');
+    setDaysPerWeek(s.daysPerWeek || 5);
+    setHoursPerWeek(s.hoursPerWeek || 40);
+    setCompany(s.company || 'OXP Global Inc.');
+    setStatus(s.status || 'Active');
     setIsModalOpen(true);
   };
 
@@ -74,7 +84,27 @@ export function ScheduleListPage() {
         status,
       });
       setIsModalOpen(false);
-      fetchSchedules();
+      await fetchSchedules();
+    } catch (err) {
+      console.error('Failed to save schedule', err);
+      alert(err?.message || 'Failed to save schedule');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id, scheduleName) => {
+    if (!window.confirm(`Are you sure you want to delete working schedule "${scheduleName || 'Selected Schedule'}"?`)) {
+      return;
+    }
+    setSaving(true);
+    try {
+      await deleteMockSchedule(id);
+      setIsModalOpen(false);
+      await fetchSchedules();
+    } catch (err) {
+      console.error('Failed to delete schedule', err);
+      alert(err?.message || 'Failed to delete schedule');
     } finally {
       setSaving(false);
     }
@@ -92,6 +122,38 @@ export function ScheduleListPage() {
     },
     { key: 'company', header: 'Company' },
     { key: 'status', header: 'Status', render: (val) => <StatusBadge status={val} /> },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right',
+      render: (_, row) => (
+        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+          {canManage && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={Edit}
+                onClick={() => handleOpenEdit(row)}
+                title="Edit Schedule"
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={Trash2}
+                className="!text-rose-600 hover:!text-rose-700 hover:!bg-rose-50 border border-rose-200/60"
+                onClick={() => handleDelete(row.id, row.name)}
+                title="Delete Working Schedule"
+              >
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -106,7 +168,7 @@ export function ScheduleListPage() {
             Weekly working patterns referenced by Contracts, Attendance, and Payroll expected hours
           </p>
         </div>
-        {can('contracts.manage') && (
+        {canManage && (
           <Button variant="primary" icon={Plus} onClick={handleOpenNew}>
             New Schedule
           </Button>
@@ -116,7 +178,7 @@ export function ScheduleListPage() {
       <DataTable
         columns={columns}
         data={schedules}
-        onRowClick={(s) => can('contracts.manage') && handleOpenEdit(s)}
+        onRowClick={(s) => canManage && handleOpenEdit(s)}
         emptyMessage="No working schedules defined"
       />
 
@@ -125,14 +187,29 @@ export function ScheduleListPage() {
         onClose={() => setIsModalOpen(false)}
         title={selectedSchedule ? 'Edit Working Schedule' : 'Create Working Schedule'}
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Schedule'}
-            </Button>
-          </>
+          <div className="flex items-center justify-between w-full">
+            <div>
+              {selectedSchedule && canManage && (
+                <Button
+                  variant="ghost"
+                  icon={Trash2}
+                  className="!text-rose-600 hover:!text-rose-700 hover:!bg-rose-50 border border-rose-200"
+                  onClick={() => handleDelete(selectedSchedule.id, selectedSchedule.name)}
+                  disabled={saving}
+                >
+                  Delete Schedule
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Schedule'}
+              </Button>
+            </div>
+          </div>
         }
       >
         <form onSubmit={handleSave} className="flex flex-col gap-4">

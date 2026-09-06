@@ -24,8 +24,10 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // 401 unauthenticated redirect
-      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      // Avoid redirecting if already on the login page or authenticating
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      }
     }
     return Promise.reject(error);
   }

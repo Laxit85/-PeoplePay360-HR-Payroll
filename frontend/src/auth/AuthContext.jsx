@@ -25,20 +25,29 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [token, setToken] = useState(() => localStorage.getItem('hrms_jwt_token') || null);
-  const [availableUsers, setAvailableUsers] = useState([]);
+  const defaultAvailableUsers = [
+    { id: 1, name: 'System Admin', email: 'admin@peoplepay360.internal', role: 'ADMIN', employeeId: 203 },
+    { id: 2, name: 'Elena Rostova', email: 'hr.manager@peoplepay360.internal', role: 'HR_MANAGER', employeeId: 4 },
+    { id: 8, name: 'Vikram Mehta', email: 'payroll.user@peoplepay360.internal', role: 'HR_PAYROLL_USER', employeeId: 9 },
+    { id: 3, name: 'David Kim', email: 'payroll.manager@peoplepay360.internal', role: 'HR_PAYROLL_MANAGER', employeeId: 5 },
+    { id: 4, name: 'Alex Morgan', email: 'alex.morgan@peoplepay360.internal', role: 'EMPLOYEE', employeeId: 1 }
+  ];
+
+  const [availableUsers, setAvailableUsers] = useState(defaultAvailableUsers);
 
   useEffect(() => {
     if (token) {
       getMeApi()
         .then((res) => {
-          if (res.success && res.user) {
+          const u = res?.user;
+          if (u) {
             const formattedUser = {
-              id: res.user.id,
-              name: res.user.employee ? `${res.user.employee.first_name} ${res.user.employee.last_name}` : res.user.email,
-              email: res.user.email,
-              role: res.user.role || ROLES.ADMIN,
-              employeeId: res.user.employee ? res.user.employee.id : null,
-              employeeName: res.user.employee ? `${res.user.employee.first_name} ${res.user.employee.last_name}` : null
+              id: u.id,
+              name: u.employee ? `${u.employee.first_name} ${u.employee.last_name}` : u.email,
+              email: u.email,
+              role: u.role || ROLES.ADMIN,
+              employeeId: u.employee ? u.employee.id : null,
+              employeeName: u.employee ? `${u.employee.first_name} ${u.employee.last_name}` : null
             };
             setUser(formattedUser);
             localStorage.setItem('hrms_current_user', JSON.stringify(formattedUser));
@@ -50,7 +59,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await loginApi(email, password);
-    if (res.success) {
+    if (res?.success || (res?.token && res?.user)) {
       const u = res.user;
       const formattedUser = {
         id: u.id,
@@ -66,7 +75,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('hrms_jwt_token', res.token);
       return formattedUser;
     } else {
-      throw new Error(res.message || 'Login failed');
+      throw new Error(res?.message || res?.error || 'Login failed');
     }
   };
 
@@ -77,7 +86,28 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('hrms_jwt_token');
   };
 
-  const switchUser = (selectedUser) => {
+  const switchUser = async (selectedUser) => {
+    try {
+      const res = await loginApi(selectedUser.email, 'password123');
+      if (res?.token && res?.user) {
+        const u = res.user;
+        const formattedUser = {
+          id: u.id,
+          name: u.employee ? `${u.employee.first_name} ${u.employee.last_name}` : selectedUser.name,
+          email: u.email,
+          role: u.role,
+          employeeId: u.employee ? u.employee.id : selectedUser.employeeId,
+          employeeName: u.employee ? `${u.employee.first_name} ${u.employee.last_name}` : selectedUser.name
+        };
+        setUser(formattedUser);
+        setToken(res.token);
+        localStorage.setItem('hrms_current_user', JSON.stringify(formattedUser));
+        localStorage.setItem('hrms_jwt_token', res.token);
+        return;
+      }
+    } catch {
+      // Fallback local switch
+    }
     setUser(selectedUser);
     localStorage.setItem('hrms_current_user', JSON.stringify(selectedUser));
   };

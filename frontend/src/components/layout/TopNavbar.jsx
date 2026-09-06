@@ -106,138 +106,161 @@ export function TopNavbar() {
             </div>
 
             <nav className="hidden md:flex items-center gap-2 text-sm font-medium text-ink-900">
-              {canAccess('employees') && (
-                <NavLink to="/employees" className={() => navLinkStyle(isEmployeesActive)}>
-                  Employees
-                </NavLink>
-              )}
-
-              {canAccess('contracts') && (
-                <NavLink
-                  to="/employees/emp-1/contracts"
-                  className={() => navLinkStyle(isContractsActive)}
-                >
-                  Contracts
-                </NavLink>
-              )}
-
-              {canAccess('attendance') && (
-                <NavLink to="/schedules" className={() => navLinkStyle(isSchedulesActive)}>
-                  Schedules
-                </NavLink>
-              )}
-
-              {canAccess('attendance') && (
-                <NavLink to="/attendance" className={() => navLinkStyle(isAttendanceActive)}>
-                  Attendance
-                </NavLink>
-              )}
-
-              {/* Time Off Dropdown */}
-              {canAccess('timeoff') && (
-                <div className="relative" ref={timeOffRef}>
-                  <button
-                    onClick={() => setTimeOffOpen(!timeOffOpen)}
-                    className={`flex items-center gap-1 ${navLinkStyle(isTimeOffActive)}`}
-                  >
-                    <span>Time Off</span>
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-
-                  {timeOffOpen && (
-                    <div className="absolute left-0 mt-1 w-52 bg-surface border border-border-strong rounded-[var(--radius-sm)] shadow-modal py-1 z-50 animate-in fade-in duration-100">
-                      <NavLink
-                        to="/timeoff/requests"
-                        onClick={() => setTimeOffOpen(false)}
-                        className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
-                      >
-                        Time Off Requests
-                      </NavLink>
-                      <NavLink
-                        to="/timeoff/allocations"
-                        onClick={() => setTimeOffOpen(false)}
-                        className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
-                      >
-                        Allocations Balance
-                      </NavLink>
-                      <NavLink
-                        to="/timeoff/types"
-                        onClick={() => setTimeOffOpen(false)}
-                        className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
-                      >
-                        Time Off Types Policy
-                      </NavLink>
-                    </div>
+              {user?.role === 'EMPLOYEE' ? (
+                <>
+                  <NavLink to="/payroll/dashboard" className={() => navLinkStyle(path === '/payroll/dashboard' || path === '/')}>
+                    Self-Service Dashboard
+                  </NavLink>
+                  <NavLink to="/attendance" className={() => navLinkStyle(isAttendanceActive)}>
+                    Attendance Clocking
+                  </NavLink>
+                  <NavLink to="/timeoff/requests" className={() => navLinkStyle(isTimeOffActive)}>
+                    Leave Requests
+                  </NavLink>
+                  {user?.employeeId && (
+                    <NavLink to={`/employees/${user.employeeId}`} className={() => navLinkStyle(isEmployeesActive)}>
+                      My Profile
+                    </NavLink>
                   )}
-                </div>
-              )}
+                </>
+              ) : (
+                <>
+                  {canAccess('employees') && (
+                    <NavLink to="/employees" className={() => navLinkStyle(isEmployeesActive)}>
+                      Employees
+                    </NavLink>
+                  )}
 
-              {/* Payroll Dropdown */}
-              {canAccess('payroll') && (
-                <div className="relative" ref={payrollRef}>
-                  <button
-                    onClick={() => setPayrollOpen(!payrollOpen)}
-                    className={`flex items-center gap-1 ${navLinkStyle(isPayrollActive)}`}
-                  >
-                    <span>Payroll</span>
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
+                  {canAccess('contracts') && (
+                    <NavLink
+                      to="/contracts"
+                      className={() => navLinkStyle(isContractsActive)}
+                    >
+                      Contracts
+                    </NavLink>
+                  )}
 
-                  {payrollOpen && (
-                    <div className="absolute left-0 mt-1 w-52 bg-surface border border-border-strong rounded-[var(--radius-sm)] shadow-modal py-1 z-50 animate-in fade-in duration-100">
-                      <NavLink
-                        to="/payroll/dashboard"
-                        onClick={() => setPayrollOpen(false)}
-                        className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                  {canAccess('attendance') && (
+                    <NavLink to="/schedules" className={() => navLinkStyle(isSchedulesActive)}>
+                      Schedules
+                    </NavLink>
+                  )}
+
+                  {canAccess('attendance') && (
+                    <NavLink to="/attendance" className={() => navLinkStyle(isAttendanceActive)}>
+                      Attendance
+                    </NavLink>
+                  )}
+
+                  {/* Time Off Dropdown */}
+                  {canAccess('timeoff') && (
+                    <div className="relative" ref={timeOffRef}>
+                      <button
+                        onClick={() => setTimeOffOpen(!timeOffOpen)}
+                        className={`flex items-center gap-1 ${navLinkStyle(isTimeOffActive)}`}
                       >
-                        Payroll Dashboard
-                      </NavLink>
-                      <NavLink
-                        to="/payroll/payruns"
-                        onClick={() => setPayrollOpen(false)}
-                        className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
-                      >
-                        Pay Runs
-                      </NavLink>
-                      {can('payroll.structures.read') && (
-                        <NavLink
-                          to="/payroll/structures"
-                          onClick={() => setPayrollOpen(false)}
-                          className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
-                        >
-                          Salary Structures
-                        </NavLink>
-                      )}
-                      {can('payroll.rules.manage') && (
-                        <NavLink
-                          to="/payroll/rules"
-                          onClick={() => setPayrollOpen(false)}
-                          className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
-                        >
-                          Salary Rules Config
-                        </NavLink>
+                        <span>Time Off</span>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+
+                      {timeOffOpen && (
+                        <div className="absolute left-0 mt-1 w-52 bg-surface border border-border-strong rounded-[var(--radius-sm)] shadow-modal py-1 z-50 animate-in fade-in duration-100">
+                          <NavLink
+                            to="/timeoff/requests"
+                            onClick={() => setTimeOffOpen(false)}
+                            className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                          >
+                            Time Off Requests
+                          </NavLink>
+                          <NavLink
+                            to="/timeoff/allocations"
+                            onClick={() => setTimeOffOpen(false)}
+                            className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                          >
+                            Allocations Balance
+                          </NavLink>
+                          <NavLink
+                            to="/timeoff/types"
+                            onClick={() => setTimeOffOpen(false)}
+                            className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                          >
+                            Time Off Types Policy
+                          </NavLink>
+                        </div>
                       )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* Admin User Management */}
-              {canAccess('users') && (
-                <NavLink to="/admin/users" className={() => navLinkStyle(isUserMgmtActive)}>
-                  User Mgmt
-                </NavLink>
-              )}
+                  {/* Payroll Dropdown */}
+                  {canAccess('payroll') && user?.role !== 'HR_MANAGER' && (
+                    <div className="relative" ref={payrollRef}>
+                      <button
+                        onClick={() => setPayrollOpen(!payrollOpen)}
+                        className={`flex items-center gap-1 ${navLinkStyle(isPayrollActive)}`}
+                      >
+                        <span>Payroll</span>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
 
-              {/* Departments Direct Modal Trigger (No small dropdown!) */}
-              {canAccess('departments') && (
-                <button
-                  type="button"
-                  onClick={() => openDepartmentModal('list')}
-                  className={navLinkStyle(isDepartmentsActive)}
-                >
-                  Departments
-                </button>
+                      {payrollOpen && (
+                        <div className="absolute left-0 mt-1 w-52 bg-surface border border-border-strong rounded-[var(--radius-sm)] shadow-modal py-1 z-50 animate-in fade-in duration-100">
+                          {user?.role !== 'HR_MANAGER' && (
+                            <NavLink
+                              to="/payroll/dashboard"
+                              onClick={() => setPayrollOpen(false)}
+                              className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                            >
+                              Payroll Dashboard
+                            </NavLink>
+                          )}
+                          <NavLink
+                            to="/payroll/payruns"
+                            onClick={() => setPayrollOpen(false)}
+                            className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                          >
+                            Pay Runs
+                          </NavLink>
+                          {can('payroll.structures.read') && (
+                            <NavLink
+                              to="/payroll/structures"
+                              onClick={() => setPayrollOpen(false)}
+                              className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                            >
+                              Salary Structures
+                            </NavLink>
+                          )}
+                          {can('payroll.rules.manage') && user?.role !== 'HR_PAYROLL_MANAGER' && (
+                            <NavLink
+                              to="/payroll/rules"
+                              onClick={() => setPayrollOpen(false)}
+                              className="block px-4 py-2 text-xs font-medium hover:bg-surface-muted text-ink-900 hover:text-primary-600"
+                            >
+                              Salary Rules Config
+                            </NavLink>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Admin User Management */}
+                  {canAccess('users') && (
+                    <NavLink to="/admin/users" className={() => navLinkStyle(isUserMgmtActive)}>
+                      User Mgmt
+                    </NavLink>
+                  )}
+
+                  {/* Departments Direct Modal Trigger (No small dropdown!) */}
+                  {canAccess('departments') && (
+                    <button
+                      type="button"
+                      onClick={() => openDepartmentModal('list')}
+                      className={navLinkStyle(isDepartmentsActive)}
+                    >
+                      Departments
+                    </button>
+                  )}
+                </>
               )}
             </nav>
           </div>

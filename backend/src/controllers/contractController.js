@@ -78,17 +78,39 @@ exports.createContract = async (req, res) => {
       status
     } = req.body;
 
+    if (!employee_id) {
+      return res.status(400).json({ success: false, message: 'Employee is required' });
+    }
+
+    const cleanWage = parseFloat(wage) || 35000;
+    const finalStructureId = parseInt(salary_structure_id, 10) || 1;
+    const finalScheduleId = working_schedule_id ? parseInt(working_schedule_id, 10) : 1;
+    const finalStartDate = start_date ? String(start_date).split('T')[0] : new Date().toISOString().split('T')[0];
+    const finalEndDate = (end_date && String(end_date).trim() !== '') ? String(end_date).split('T')[0] : null;
+    const finalStatus = status || 'ACTIVE';
+    const finalRef = (reference_name && String(reference_name).trim()) || 'Employment Agreement';
+
     // Concurrency Rule: If creating as ACTIVE, ensure no other active contract exists
-    if (status === 'ACTIVE') {
+    if (finalStatus === 'ACTIVE') {
       const [existingActive] = await pool.execute(
         `SELECT id, reference_name FROM contracts WHERE employee_id = ? AND status = 'ACTIVE'`,
         [employee_id]
       );
       if (existingActive.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Employee already has an active contract (${existingActive[0].reference_name}). Please expire or terminate it first.`
-        });
+        if (req.body.replace_active) {
+          const archiveEndDate = finalStartDate;
+          await pool.execute(
+            `UPDATE contracts SET status = 'EXPIRED', end_date = COALESCE(end_date, ?) WHERE employee_id = ? AND status = 'ACTIVE'`,
+            [archiveEndDate, employee_id]
+          );
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: `Employee already has an active contract (${existingActive[0].reference_name}).`,
+            hasOtherActive: true,
+            activeContractName: existingActive[0].reference_name
+          });
+        }
       }
     }
 
@@ -98,8 +120,8 @@ exports.createContract = async (req, res) => {
         wage, wage_type, start_date, end_date, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        employee_id, reference_name, salary_structure_id, working_schedule_id || null,
-        wage, wage_type || 'MONTHLY', start_date, end_date || null, status || 'DRAFT'
+        employee_id, finalRef, finalStructureId, finalScheduleId,
+        cleanWage, wage_type || 'MONTHLY', finalStartDate, finalEndDate, finalStatus
       ]
     );
 
@@ -128,8 +150,16 @@ exports.updateContract = async (req, res) => {
       status
     } = req.body;
 
+    const cleanWage = wage !== undefined ? (parseFloat(wage) || 0) : null;
+    const finalStructureId = salary_structure_id ? (parseInt(salary_structure_id, 10) || 1) : null;
+    const finalScheduleId = (working_schedule_id !== undefined && working_schedule_id !== '') ? parseInt(working_schedule_id, 10) : null;
+    const finalStartDate = start_date ? String(start_date).split('T')[0] : null;
+    const finalEndDate = (end_date !== undefined && end_date !== '' && end_date !== null) ? String(end_date).split('T')[0] : null;
+    const finalStatus = status || null;
+    const finalRef = (reference_name && String(reference_name).trim()) || null;
+
     // If changing to ACTIVE, ensure no other active contract exists
-    if (status === 'ACTIVE') {
+    if (finalStatus === 'ACTIVE') {
       const [[current]] = await pool.execute('SELECT employee_id FROM contracts WHERE id = ?', [contractId]);
       if (current) {
         const [otherActive] = await pool.execute(
@@ -137,10 +167,20 @@ exports.updateContract = async (req, res) => {
           [current.employee_id, contractId]
         );
         if (otherActive.length > 0) {
-          return res.status(400).json({
-            success: false,
-            message: `Employee already has another active contract (${otherActive[0].reference_name}).`
-          });
+          if (req.body.replace_active) {
+            const archiveEndDate = finalStartDate || new Date().toISOString().split('T')[0];
+            await pool.execute(
+              `UPDATE contracts SET status = 'EXPIRED', end_date = COALESCE(end_date, ?) WHERE employee_id = ? AND status = 'ACTIVE' AND id != ?`,
+              [archiveEndDate, current.employee_id, contractId]
+            );
+          } else {
+            return res.status(400).json({
+              success: false,
+              message: `Employee already has another active contract (${otherActive[0].reference_name}).`,
+              hasOtherActive: true,
+              activeContractName: otherActive[0].reference_name
+            });
+          }
         }
       }
     }
@@ -149,7 +189,7 @@ exports.updateContract = async (req, res) => {
       `UPDATE contracts SET
         reference_name = COALESCE(?, reference_name),
         salary_structure_id = COALESCE(?, salary_structure_id),
-        working_schedule_id = ?,
+        working_schedule_id = COALESCE(?, working_schedule_id),
         wage = COALESCE(?, wage),
         wage_type = COALESCE(?, wage_type),
         start_date = COALESCE(?, start_date),
@@ -157,8 +197,8 @@ exports.updateContract = async (req, res) => {
         status = COALESCE(?, status)
        WHERE id = ?`,
       [
-        reference_name, salary_structure_id, working_schedule_id || null,
-        wage, wage_type, start_date, end_date || null, status,
+        finalRef, finalStructureId, finalScheduleId,
+        cleanWage, wage_type || null, finalStartDate, finalEndDate, finalStatus,
         contractId
       ]
     );

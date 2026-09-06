@@ -12,8 +12,8 @@ export function AppShell() {
       {/* Top Navbar */}
       <TopNavbar />
 
-      {/* Main Content Area with 3D Entrance Reveal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 relative z-10 scroll-reveal">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 relative z-10">
         <Outlet />
       </main>
     </div>

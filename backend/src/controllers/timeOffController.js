@@ -3,7 +3,7 @@ const { pool } = require('../config/db');
 // --- 1. TIME OFF TYPES ---
 exports.getTypes = async (req, res) => {
   try {
-    const [types] = await pool.execute('SELECT * FROM time_off_types ORDER BY name ASC');
+    const [types] = await pool.execute('SELECT * FROM time_off_types WHERE is_active = 1 ORDER BY id ASC');
     res.status(200).json({ success: true, count: types.length, data: types });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -51,6 +51,13 @@ exports.getAllocations = async (req, res) => {
     if (status) {
       query += ' AND toa.status = ?';
       params.push(status);
+    }
+    if (req.user && req.user.role === 'EMPLOYEE') {
+      const userEmpId = req.user.employeeId || req.user.employee?.id;
+      if (userEmpId) {
+        query += ' AND toa.employee_id = ?';
+        params.push(userEmpId);
+      }
     }
 
     query += ' ORDER BY toa.valid_from DESC';
@@ -118,8 +125,15 @@ exports.getRequests = async (req, res) => {
       query += ' AND tor.status = ?';
       params.push(status);
     }
+    if (req.user && req.user.role === 'EMPLOYEE') {
+      const userEmpId = req.user.employeeId || req.user.employee?.id;
+      if (userEmpId) {
+        query += ' AND tor.employee_id = ?';
+        params.push(userEmpId);
+      }
+    }
 
-    query += ' ORDER BY tor.date_from DESC';
+    query += ' ORDER BY FIELD(tor.status, "SUBMITTED", "DRAFT") DESC, tor.id DESC';
 
     const [requests] = await pool.execute(query, params);
     res.status(200).json({ success: true, count: requests.length, data: requests });
@@ -131,10 +145,27 @@ exports.getRequests = async (req, res) => {
 // Submit request
 exports.createRequest = async (req, res) => {
   try {
-    const { employee_id, time_off_type_id, date_from, date_to, duration, reason } = req.body;
+    let { employee_id, time_off_type_id, date_from, date_to, duration, reason,
+          employeeId, timeOffTypeId, startDate, endDate, numberOfDays } = req.body;
+
+    employee_id = employee_id || employeeId;
+    time_off_type_id = time_off_type_id || timeOffTypeId;
+    date_from = date_from || startDate;
+    date_to = date_to || endDate;
+    duration = duration || numberOfDays || 1;
+
+    if (req.user && req.user.role === 'EMPLOYEE') {
+      employee_id = req.user.employeeId || req.user.employee?.id || employee_id;
+    }
 
     // Check type requirement
     const [[type]] = await pool.execute('SELECT * FROM time_off_types WHERE id = ?', [time_off_type_id]);
+    if (!type || !type.is_active) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid leave type. Only Paid Annual Leave and Paid Sick Leave are allowed.'
+      });
+    }
     let allocationId = null;
 
     if (type && type.requires_allocation) {
@@ -142,18 +173,24 @@ exports.createRequest = async (req, res) => {
       const [allocations] = await pool.execute(
         `SELECT id, remaining_days FROM time_off_allocations 
          WHERE employee_id = ? AND time_off_type_id = ? AND status = 'APPROVED' 
-           AND valid_from <= ? AND valid_to >= ? 
-           AND remaining_days >= ?
-         LIMIT 1`,
-        [employee_id, time_off_type_id, date_to, date_from, duration]
+         ORDER BY id DESC LIMIT 1`,
+        [employee_id, time_off_type_id]
       );
 
       if (allocations.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Insufficient approved leave balance for this leave type.'
+          message: `No approved leave allocation found for ${type.name}. Please contact HR.`
         });
       }
+
+      if (parseFloat(allocations[0].remaining_days) < parseFloat(duration)) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient leave balance: You have ${allocations[0].remaining_days} days remaining for ${type.name}, but requested ${duration} days.`
+        });
+      }
+
       allocationId = allocations[0].id;
     }
 
@@ -189,37 +226,56 @@ exports.approveRequest = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Request is already approved' });
     }
 
-    // Deduct allocation balance if required
-    if (request.requires_allocation && request.allocation_id) {
-      const [[allocation]] = await connection.execute(
-        'SELECT remaining_days, taken_days FROM time_off_allocations WHERE id = ? FOR UPDATE',
-        [request.allocation_id]
-      );
-
-      if (allocation.remaining_days < request.duration) {
-        await connection.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Cannot approve: Remaining balance (${allocation.remaining_days}) is less than requested (${request.duration}).`
-        });
+    // Deduct allocation balance if required and allocation exists
+    if (request.requires_allocation) {
+      let allocId = request.allocation_id;
+      if (!allocId) {
+        const [avail] = await connection.execute(
+          `SELECT id FROM time_off_allocations 
+           WHERE employee_id = ? AND time_off_type_id = ? AND status = 'APPROVED' 
+           ORDER BY id DESC LIMIT 1`,
+          [request.employee_id, request.time_off_type_id]
+        );
+        if (avail.length > 0) {
+          allocId = avail[0].id;
+          await connection.execute('UPDATE time_off_requests SET allocation_id = ? WHERE id = ?', [allocId, requestId]);
+        }
       }
 
-      await connection.execute(
-        `UPDATE time_off_allocations SET 
-          taken_days = taken_days + ?, 
-          remaining_days = remaining_days - ? 
-         WHERE id = ?`,
-        [request.duration, request.duration, request.allocation_id]
-      );
+      if (allocId) {
+        const [[allocation]] = await connection.execute(
+          'SELECT remaining_days, taken_days FROM time_off_allocations WHERE id = ? FOR UPDATE',
+          [allocId]
+        );
+
+        if (allocation && parseFloat(allocation.remaining_days) < parseFloat(request.duration)) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Cannot approve: Remaining balance (${allocation.remaining_days} days) is less than requested (${request.duration} days).`
+          });
+        }
+
+        if (allocation) {
+          await connection.execute(
+            `UPDATE time_off_allocations SET 
+              taken_days = taken_days + ?, 
+              remaining_days = remaining_days - ? 
+             WHERE id = ?`,
+            [request.duration, request.duration, allocId]
+          );
+        }
+      }
     }
 
+    const approverUserId = req.user?.id || null;
     await connection.execute(
       'UPDATE time_off_requests SET status = "APPROVED", approved_by_user_id = ? WHERE id = ?',
-      [req.user.id, requestId]
+      [approverUserId, requestId]
     );
 
     await connection.commit();
-    res.status(200).json({ success: true, message: 'Leave request approved and balance consumed' });
+    res.status(200).json({ success: true, message: 'Leave request approved successfully' });
   } catch (error) {
     await connection.rollback();
     res.status(400).json({ success: false, message: error.message });
@@ -230,14 +286,62 @@ exports.approveRequest = async (req, res) => {
 
 // Refuse request
 exports.refuseRequest = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const { refusal_reason } = req.body;
-    await pool.execute(
-      'UPDATE time_off_requests SET status = "REFUSED", refusal_reason = ?, approved_by_user_id = ? WHERE id = ?',
-      [refusal_reason || 'Disapproved by manager', req.user.id, req.params.id]
+    await connection.beginTransaction();
+    const requestId = req.params.id;
+    const { refusal_reason } = req.body || {};
+
+    const [[request]] = await connection.execute(
+      'SELECT * FROM time_off_requests WHERE id = ?',
+      [requestId]
     );
+
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    // If it was previously APPROVED and had an allocation, restore balance
+    if (request.status === 'APPROVED' && request.allocation_id) {
+      await connection.execute(
+        `UPDATE time_off_allocations SET 
+          taken_days = GREATEST(0, taken_days - ?), 
+          remaining_days = remaining_days + ? 
+         WHERE id = ?`,
+        [request.duration, request.duration, request.allocation_id]
+      );
+    }
+
+    const reviewerUserId = req.user?.id || null;
+    await connection.execute(
+      'UPDATE time_off_requests SET status = "REFUSED", refusal_reason = ?, approved_by_user_id = ? WHERE id = ?',
+      [refusal_reason || 'Disapproved by manager', reviewerUserId, requestId]
+    );
+
+    await connection.commit();
     res.status(200).json({ success: true, message: 'Leave request refused' });
   } catch (error) {
+    await connection.rollback();
     res.status(400).json({ success: false, message: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// Generic status update (maps to approve or refuse)
+exports.updateRequestStatus = async (req, res) => {
+  const { status } = req.body || {};
+  const upperStatus = String(status || '').toUpperCase();
+  if (upperStatus === 'APPROVED') {
+    return exports.approveRequest(req, res);
+  } else if (upperStatus === 'REFUSED') {
+    return exports.refuseRequest(req, res);
+  } else {
+    try {
+      await pool.execute('UPDATE time_off_requests SET status = ? WHERE id = ?', [upperStatus, req.params.id]);
+      res.status(200).json({ success: true, message: `Request status updated to ${upperStatus}` });
+    } catch (e) {
+      res.status(400).json({ success: false, message: e.message });
+    }
   }
 };

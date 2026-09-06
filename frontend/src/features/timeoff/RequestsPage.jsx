@@ -55,25 +55,44 @@ export function RequestsPage() {
       const formattedReqs = rawReqs.map((r) => ({
         id: r.id,
         employeeId: r.employee_id,
-        employeeName: r.first_name ? `${r.first_name} ${r.last_name || ''}`.trim() : 'Employee',
+        employeeName: r.first_name ? `${r.first_name} ${r.last_name || ''}`.trim() : (r.employee_name || 'Employee'),
         timeOffTypeId: r.time_off_type_id,
-        timeOffTypeName: r.time_off_type_name || 'Leave',
-        startDate: r.start_date,
-        endDate: r.end_date,
-        numberOfDays: r.requested_days || 1,
-        status: r.status || 'SUBMITTED',
-        reason: r.reason
+        timeOffTypeName: r.time_off_type_name || r.time_off_type_code || 'General Leave',
+        typeName: r.time_off_type_name || r.time_off_type_code || 'General Leave',
+        startDate: r.date_from || r.start_date,
+        endDate: r.date_to || r.end_date,
+        numberOfDays: r.duration != null ? Number(r.duration) : (r.requested_days || 1),
+        status: String(r.status || 'SUBMITTED').toUpperCase(),
+        reason: r.reason || '—'
       }));
 
       const formattedEmps = rawEmps.map((e) => ({
         id: e.id,
-        name: e.first_name ? `${e.first_name} ${e.last_name || ''}`.trim() : 'Employee'
+        name: e.first_name ? `${e.first_name} ${e.last_name || ''}`.trim() : 'Employee',
+        code: e.employee_code || `EMP-${e.id}`,
+        department: e.department_name || 'General'
       }));
 
+      // Restrict strictly to Paid Annual Leave and Paid Sick Leave only
+      const allowedTypes = rawTypes.filter(
+        (t) =>
+          Number(t.id) === 1 ||
+          Number(t.id) === 2 ||
+          t.name.toLowerCase().includes('annual') ||
+          t.name.toLowerCase().includes('sick')
+      );
+      const displayTypes = allowedTypes.length ? allowedTypes : [
+        { id: 1, name: 'Paid Annual Leave', code: 'PTO' },
+        { id: 2, name: 'Paid Sick Leave', code: 'SICK' },
+      ];
+
       setRequests(formattedReqs);
-      setTypes(rawTypes);
+      setTypes(displayTypes);
       setEmployees(formattedEmps);
-      if (rawTypes.length) setTimeOffTypeId(rawTypes[0].id);
+      if (displayTypes.length) setTimeOffTypeId(displayTypes[0].id);
+      if (formattedEmps.length && !employeeId) {
+        setEmployeeId(user?.role === 'EMPLOYEE' && user?.employeeId ? user.employeeId : formattedEmps[0].id);
+      }
     } catch (err) {
       console.error('Failed to load leave requests', err);
     } finally {
@@ -86,22 +105,40 @@ export function RequestsPage() {
   }, [empFilter]);
 
   const handleCreate = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setErrorMessage('');
+
+    const targetEmpId = (user?.role === 'EMPLOYEE' && user?.employeeId) ? user.employeeId : employeeId;
+
+    if (!targetEmpId) {
+      setErrorMessage('Please select an employee.');
+      return;
+    }
+    if (!timeOffTypeId) {
+      setErrorMessage('Please select a time off type.');
+      return;
+    }
+    if (!startDate || !endDate) {
+      setErrorMessage('Please choose start and end dates.');
+      return;
+    }
+
     setSaving(true);
     try {
-      await createTimeOffRequest({
-        employeeId,
-        timeOffTypeId,
-        startDate,
-        endDate,
-        numberOfDays: Number(numberOfDays),
-        reason,
+      await createTimeOffRequestApi({
+        employee_id: Number(targetEmpId),
+        time_off_type_id: Number(timeOffTypeId),
+        date_from: startDate,
+        date_to: endDate,
+        duration: Number(numberOfDays) || 1,
+        reason: reason || ''
       });
       setIsModalOpen(false);
-      fetchData();
+      setReason('');
+      await fetchData();
     } catch (err) {
-      setErrorMessage(err.message || 'Error submitting request');
+      console.error('Failed to submit leave request', err);
+      setErrorMessage(err?.response?.data?.message || err.message || 'Error submitting request');
     } finally {
       setSaving(false);
     }
@@ -109,14 +146,18 @@ export function RequestsPage() {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await updateTimeOffStatus(id, status);
-      fetchData();
+      await updateTimeOffStatusApi(id, { status });
+      await fetchData();
     } catch (err) {
-      alert(err.message);
+      alert(err?.response?.data?.message || err.message || 'Error updating status');
     }
   };
 
-  const canApprove = can('timeoff.approve');
+  const canApprove =
+    user?.role === 'ADMIN' ||
+    user?.role === 'HR_MANAGER' ||
+    user?.role === 'HR_PAYROLL_MANAGER' ||
+    can('timeoff.approve');
 
   const columns = [
     { key: 'employeeName', header: 'Employee' },
@@ -137,15 +178,50 @@ export function RequestsPage() {
             key: 'actions',
             header: 'Review Action',
             align: 'right',
-            render: (_, row) =>
-              row.status === 'To Approve' ? (
-                <ApproveRefuseButtons
-                  onApprove={() => handleStatusChange(row.id, 'Approved')}
-                  onRefuse={() => handleStatusChange(row.id, 'Refused')}
-                />
-              ) : (
-                <span className="text-xs text-ink-400 italic">Completed</span>
-              ),
+            render: (_, row) => {
+              const statusUpper = String(row.status || '').toUpperCase();
+              if (['SUBMITTED', 'PENDING', 'TO APPROVE', 'DRAFT'].includes(statusUpper)) {
+                return (
+                  <ApproveRefuseButtons
+                    onApprove={() => handleStatusChange(row.id, 'APPROVED')}
+                    onRefuse={() => handleStatusChange(row.id, 'REFUSED')}
+                  />
+                );
+              }
+              if (statusUpper === 'APPROVED') {
+                return (
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-xs text-emerald-400 font-semibold px-2.5 py-1 rounded bg-emerald-500/15 border border-emerald-500/30">
+                      Approved
+                    </span>
+                    <button
+                      onClick={() => handleStatusChange(row.id, 'REFUSED')}
+                      className="text-xs text-rose-400 hover:text-rose-300 hover:underline px-1.5 py-0.5 font-medium transition-colors"
+                      title="Change status to Refused"
+                    >
+                      Refuse
+                    </button>
+                  </div>
+                );
+              }
+              if (statusUpper === 'REFUSED') {
+                return (
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-xs text-rose-400 font-semibold px-2.5 py-1 rounded bg-rose-500/15 border border-rose-500/30">
+                      Refused
+                    </span>
+                    <button
+                      onClick={() => handleStatusChange(row.id, 'APPROVED')}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline px-1.5 py-0.5 font-medium transition-colors"
+                      title="Change status to Approved"
+                    >
+                      Approve
+                    </button>
+                  </div>
+                );
+              }
+              return <span className="text-xs text-ink-400 italic">Completed</span>;
+            },
           },
         ]
       : []),
@@ -179,44 +255,59 @@ export function RequestsPage() {
         onClose={() => setIsModalOpen(false)}
         title="Submit Time Off Request"
         footer={
-          <>
+          <div className="flex items-center justify-end gap-3 w-full">
             <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleCreate} disabled={saving}>
+            <Button
+              type="submit"
+              form="timeoff-form"
+              variant="primary"
+              disabled={saving}
+              className="!bg-[#C5A059] !text-slate-950 font-bold hover:!bg-[#b38e36]"
+            >
               {saving ? 'Submitting...' : 'Submit Request'}
             </Button>
-          </>
+          </div>
         }
       >
         {errorMessage && (
-          <div className="mb-4 p-3 rounded-sm bg-danger-50 border border-danger-600/30 text-xs font-semibold text-danger-600 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="mb-4 p-3.5 rounded-md bg-danger-500/15 border border-danger-500/40 text-xs font-semibold text-danger-300 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-danger-400" />
             <span>{errorMessage}</span>
           </div>
         )}
 
-        <form onSubmit={handleCreate} className="flex flex-col gap-4">
-          <Select
-            label="Employee"
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value)}
-          >
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name} ({emp.department})
-              </option>
-            ))}
-          </Select>
+        <form id="timeoff-form" onSubmit={handleCreate} className="flex flex-col gap-4">
+          {user?.role !== 'EMPLOYEE' ? (
+            <Select
+              label="Employee"
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
+            >
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} ({emp.code} - {emp.department})
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-ink-600">Employee</label>
+              <div className="px-3 py-2 rounded border border-border bg-surface-sunken text-sm text-ink-900 font-medium">
+                {user.name || 'Current Employee'} {user.employeeCode ? `(${user.employeeCode})` : ''}
+              </div>
+            </div>
+          )}
 
           <Select
-            label="Time Off Type"
+            label="Leave Type"
             value={timeOffTypeId}
-            onChange={(e) => setTimeOffTypeId(e.target.value)}
+            onChange={(e) => setTimeOffTypeId(Number(e.target.value))}
           >
             {types.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name} ({t.requiresAllocation ? 'Requires Allocation Balance' : 'No Allocation Needed'})
+                {t.name}
               </option>
             ))}
           </Select>
@@ -226,19 +317,38 @@ export function RequestsPage() {
               label="Start Date"
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setStartDate(val);
+                if (val && endDate) {
+                  const d1 = new Date(val);
+                  const d2 = new Date(endDate);
+                  const diff = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1);
+                  if (!isNaN(diff) && diff > 0) setNumberOfDays(diff);
+                }
+              }}
               required
             />
             <Input
               label="End Date"
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setEndDate(val);
+                if (startDate && val) {
+                  const d1 = new Date(startDate);
+                  const d2 = new Date(val);
+                  const diff = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1);
+                  if (!isNaN(diff) && diff > 0) setNumberOfDays(diff);
+                }
+              }}
               required
             />
             <Input
               label="Number of Days"
               type="number"
+              min="1"
               value={numberOfDays}
               onChange={(e) => setNumberOfDays(e.target.value)}
               required

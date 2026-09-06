@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, DollarSign, ArrowRight } from 'lucide-react';
+import { Plus, IndianRupee, ArrowRight, Trash2, Eye } from 'lucide-react';
 import {
   getPayrunsApi,
   getSalaryStructuresApi,
   createPayrunApi,
+  deletePayrunApi,
+  getEligibleEmployeesApi,
 } from '../../../api';
 import { DataTable } from '../../../components/data/DataTable';
 import { StatusBadge } from '../../../components/data/StatusBadge';
@@ -18,7 +20,7 @@ import { useAuth } from '../../../auth/useAuth';
 
 export function PayrunListPage() {
   const navigate = useNavigate();
-  const { can } = useAuth();
+  const { user, can } = useAuth();
 
   const [payruns, setPayruns] = useState([]);
   const [structures, setStructures] = useState([]);
@@ -54,9 +56,11 @@ export function PayrunListPage() {
         salaryStructureName: p.salary_structure_name || 'Standard Structure',
         periodStart: p.period_start,
         periodEnd: p.period_end,
-        totalNetWage: parseFloat(p.total_net_wage || 0),
+        totalGross: parseFloat(p.total_gross || 0),
+        totalNet: parseFloat(p.total_net || 0),
+        totalDeductions: parseFloat(p.total_deductions || 0),
         status: p.status || 'DRAFT',
-        employeeCount: p.employee_count || 0
+        payslipCount: p.total_employees !== undefined ? p.total_employees : (p.payslip_count || 0)
       }));
 
       setPayruns(formattedPayruns);
@@ -81,10 +85,26 @@ export function PayrunListPage() {
   const handleStep1Continue = async () => {
     setEligibleLoading(true);
     try {
-      const eligible = await fetchEligibleEmployeesForPayrun(periodStart, periodEnd);
+      const res = await getEligibleEmployeesApi(salaryStructureId, periodStart, periodEnd);
+      const rawEligible = res?.data || res || [];
+      const eligible = rawEligible.map((e) => ({
+        employeeId: e.employee_id || e.id,
+        name: e.full_name || `${e.first_name || ''} ${e.last_name || ''}`.trim(),
+        employeeName: e.full_name || `${e.first_name || ''} ${e.last_name || ''}`.trim(),
+        code: e.employee_code,
+        department: e.department_name,
+        position: e.job_position_title,
+        wage: e.contract_wage,
+        contractRef: e.contract_reference,
+        startDate: e.start_date,
+        hasBankDetails: Boolean(e.has_bank_details)
+      }));
       setEligibleEmployees(eligible);
       setSelectedEmployeeIds(eligible.map((e) => e.employeeId));
       setWizardStep(2);
+    } catch (err) {
+      console.error('Failed to query eligible employees', err);
+      alert(err?.response?.data?.message || err.message || 'Failed to query eligible employees');
     } finally {
       setEligibleLoading(false);
     }
@@ -97,18 +117,49 @@ export function PayrunListPage() {
     }
     setCreating(true);
     try {
-      const created = await createPayrun({
-        salaryStructureId,
-        periodStart,
-        periodEnd,
-        selectedEmployeeIds,
+      const pStart = periodStart || '2026-09-01';
+      const pEnd = periodEnd || '2026-09-30';
+      const monthName = new Date(pStart + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const empCount = selectedEmployeeIds.length;
+      const runName = `${monthName} Pay Run (${empCount} employee${empCount > 1 ? 's' : ''})`;
+
+      const res = await createPayrunApi({
+        name: runName,
+        salary_structure_id: Number(salaryStructureId) || 1,
+        period_start: pStart,
+        period_end: pEnd,
+        selected_employee_ids: selectedEmployeeIds,
       });
+      const created = res?.data || res;
       setIsWizardOpen(false);
       navigate(`/payroll/payruns/${created.id}`);
+    } catch (err) {
+      console.error('Failed to create payrun', err);
+      alert(err?.response?.data?.message || err.message || 'Failed to create pay run');
     } finally {
       setCreating(false);
     }
   };
+
+  const handleDeletePayrun = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete pay run "${name || `#${id}`}"? All draft/computed payslips in this run will be permanently removed.`)) {
+      return;
+    }
+    try {
+      await deletePayrunApi(id);
+      fetchPayruns();
+    } catch (err) {
+      console.error('Failed to delete payrun', err);
+      alert(err?.response?.data?.message || err.message || 'Failed to delete pay run');
+    }
+  };
+
+  const canDelete =
+    can('payroll.payruns.delete') ||
+    can('payroll.payruns.manage') ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'HR_PAYROLL_MANAGER' ||
+    user?.role === 'HR_PAYROLL_USER';
 
   const columns = [
     {
@@ -142,6 +193,36 @@ export function PayrunListPage() {
       render: (val) => <CurrencyCell amount={val} className="text-money-600 font-extrabold" />,
     },
     { key: 'status', header: 'Status', render: (val) => <StatusBadge status={val} /> },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right',
+      render: (_, row) => (
+        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={Eye}
+            onClick={() => navigate(`/payroll/payruns/${row.id}`)}
+            title="View Pay Run"
+          >
+            View
+          </Button>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Trash2}
+              className="!text-rose-600 hover:!text-rose-700 hover:!bg-rose-50 border border-rose-200/60"
+              onClick={() => handleDeletePayrun(row.id, row.name)}
+              title="Delete Pay Run"
+            >
+              Delete
+            </Button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -149,7 +230,7 @@ export function PayrunListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display text-ink-900 flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-primary-600" />
+            <IndianRupee className="w-6 h-6 text-primary-600" />
             <span>Pay Runs</span>
           </h1>
           <p className="text-xs text-ink-600 mt-1">

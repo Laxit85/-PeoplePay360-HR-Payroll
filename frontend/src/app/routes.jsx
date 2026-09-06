@@ -21,6 +21,16 @@ import { StructureListPage } from '../features/payroll/structures/StructureListP
 import { RuleListPage } from '../features/payroll/rules/RuleListPage';
 import { DashboardPage } from '../features/payroll/dashboard/DashboardPage';
 
+import { useAuth } from '../auth/useAuth';
+
+function RootRedirect() {
+  const { user } = useAuth();
+  if (user?.role === 'EMPLOYEE') {
+    return <Navigate to="/payroll/dashboard" replace />;
+  }
+  return <Navigate to="/employees" replace />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -35,7 +45,7 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<Navigate to="/employees" replace />} />
+        <Route path="/" element={<RootRedirect />} />
 
         {/* Module 0: User Management */}
         <Route
@@ -61,6 +71,14 @@ export function AppRoutes() {
           element={
             <ProtectedRoute module="employees">
               <EmployeeFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contracts"
+          element={
+            <ProtectedRoute module="contracts">
+              <ContractListPanel />
             </ProtectedRoute>
           }
         />
@@ -161,7 +179,7 @@ export function AppRoutes() {
         <Route
           path="/payroll/rules"
           element={
-            <ProtectedRoute module="payroll">
+            <ProtectedRoute module="payroll" capability="payroll.rules.manage">
               <RuleListPage />
             </ProtectedRoute>
           }

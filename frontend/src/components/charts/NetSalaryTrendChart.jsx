@@ -10,11 +10,19 @@ import {
 } from 'recharts';
 import { formatCurrency } from '../../lib/format';
 
-export function NetSalaryTrendChart({ data = [] }) {
+export function NetSalaryTrendChart({ data = [], currency = 'INR' }) {
+  const chartData = data.map((item) => ({
+    ...item,
+    month: item.month || item.name || 'Period',
+    netPaid: item.netPaid !== undefined ? item.netPaid : (item.netTotal !== undefined ? item.netTotal : 0),
+  }));
+
+  const symbol = currency === 'USD' ? '$' : '₹';
+
   return (
     <div className="w-full h-64">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+        <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="month"
@@ -28,10 +36,10 @@ export function NetSalaryTrendChart({ data = [] }) {
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `$${v / 1000}k`}
+            tickFormatter={(v) => `${symbol}${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
           />
           <Tooltip
-            formatter={(value) => [formatCurrency(value), 'Net Paid']}
+            formatter={(value) => [formatCurrency(value, currency), 'Net Paid']}
             contentStyle={{
               backgroundColor: 'var(--surface)',
               borderColor: 'var(--border-strong)',

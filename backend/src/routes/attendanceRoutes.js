@@ -4,12 +4,16 @@ const {
   checkIn,
   checkOut,
   correctAttendance,
-  deleteAttendance
+  deleteAttendance,
+  clock,
+  getStats
 } = require('../controllers/attendanceController');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
+router.get('/stats', protect, getStats);
+router.post('/clock', protect, clock);
 router.get('/', protect, getAttendances);
 router.post('/check-in', protect, checkIn);
 router.post('/check-out', protect, checkOut);

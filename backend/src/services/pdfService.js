@@ -28,32 +28,42 @@ function generatePayslipPDF(payslip, lines, employee, contract, payrun) {
 
       doc.moveDown(3);
 
-      const pStart = new Date(payslip.period_start).toLocaleDateString();
-      const pEnd = new Date(payslip.period_end).toLocaleDateString();
+      const pStart = new Date(payslip.period_start).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+      const pEnd = new Date(payslip.period_end).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
 
       // Info Box
-      doc.rect(40, 115, 515, 75).fill(lightBg).stroke('#e2e8f0');
+      doc.rect(40, 115, 515, 88).fill(lightBg).stroke('#e2e8f0');
       doc.fillColor(darkColor).fontSize(10).font('Helvetica-Bold');
-      doc.text('Employee Information', 55, 125);
-      doc.text('Pay Period Details', 320, 125);
+      doc.text('Employee & Contract Information', 55, 125);
+      doc.text('Pay Period & Attendance Details', 320, 125);
 
       doc.font('Helvetica').fontSize(9).fillColor(grayColor);
-      doc.text(`Name: ${employee.first_name} ${employee.last_name}`, 55, 142);
-      doc.text(`Code: ${employee.employee_code}`, 55, 156);
-      doc.text(`Bank Acc: ${employee.bank_account_no || 'N/A'}`, 55, 170);
+      doc.text(`Name: ${employee.first_name} ${employee.last_name} (${employee.employee_code})`, 55, 142);
+      doc.text(`Contract: ${contract?.reference_name || 'Standard Agreement'}`, 55, 156);
+      doc.text(`Contract Monthly Wage: Rs. ${Number(contract?.wage || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 55, 170);
+      doc.text(`Bank Account: ${employee.bank_account_no || 'Pending Direct Deposit'}`, 55, 184);
 
-      doc.text(`Pay Period: ${pStart} to ${pEnd}`, 320, 142);
-      doc.text(`Scheduled Days: ${payslip.scheduled_work_days} | Worked: ${payslip.worked_days}`, 320, 156);
-      doc.text(`Unpaid Leave Days: ${payslip.unpaid_leave_days || 0}`, 320, 170);
+      const workedDaysVal = parseFloat(payslip.worked_days || 22);
+      const schedDaysVal = parseFloat(payslip.scheduled_work_days || 22);
+      const perDayVal = schedDaysVal > 0 ? (Number(contract?.wage || 0) / schedDaysVal) : Number(contract?.wage || 0);
+      const earnedWageVal = perDayVal * workedDaysVal;
+      const workedHrsVal = Math.round(workedDaysVal * 8);
+
+      doc.text(`Effective Pay Period: ${pStart} to ${pEnd}`, 320, 142);
+      doc.text(`Per Day Wage: Rs. ${perDayVal.toFixed(2)} / day (${schedDaysVal} days sched)`, 320, 156);
+      doc.font('Helvetica-Bold').fillColor(primaryColor);
+      doc.text(`Present: ${workedDaysVal} days (${workedHrsVal} hrs) | Earned: Rs. ${earnedWageVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 320, 170);
+      doc.font('Helvetica').fillColor(grayColor);
+      doc.text(`Unpaid Leaves: ${payslip.unpaid_leave_days || 0} days`, 320, 184);
 
       // Table Header
-      let y = 210;
+      let y = 220;
       doc.rect(40, y, 515, 24).fill('#1e293b');
       doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
       doc.text('Category', 55, y + 7);
       doc.text('Salary Component / Rule', 150, y + 7);
       doc.text('Rate / %', 350, y + 7);
-      doc.text('Amount ($)', 460, y + 7, { align: 'right' });
+      doc.text('Amount (Rs. INR)', 460, y + 7, { align: 'right' });
 
       // Table Lines
       y += 24;
@@ -74,7 +84,7 @@ function generatePayslipPDF(payslip, lines, employee, contract, payrun) {
         doc.text(line.category, 55, y + 6);
         doc.text(line.rule_name || line.rule_code, 150, y + 6);
         doc.text(line.rate_or_percentage ? `${line.rate_or_percentage}%` : '-', 350, y + 6);
-        doc.text(`${isDeduction ? '-' : ''}$${Number(line.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 420, y + 6, { align: 'right', width: 120 });
+        doc.text(`${isDeduction ? '-' : ''}Rs. ${Number(line.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 420, y + 6, { align: 'right', width: 120 });
 
         y += 22;
         doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(40, y).lineTo(555, y).stroke();
@@ -84,8 +94,8 @@ function generatePayslipPDF(payslip, lines, employee, contract, payrun) {
       y += 20;
       doc.rect(40, y, 515, 55).fill(primaryColor);
       doc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('FINAL NET SALARY PAYABLE', 60, y + 15);
-      doc.fontSize(8).font('Helvetica').text('Disbursed via Electronic Direct Deposit', 60, y + 32);
-      doc.fontSize(18).font('Helvetica-Bold').text(`$${Number(payslip.net_salary).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 350, y + 16, { align: 'right', width: 185 });
+      doc.fontSize(8).font('Helvetica').text('Disbursed via Electronic Direct Deposit (NEFT / IMPS)', 60, y + 32);
+      doc.fontSize(18).font('Helvetica-Bold').text(`Rs. ${Number(payslip.net_salary).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 350, y + 16, { align: 'right', width: 185 });
 
       // Footer
       doc.fontSize(8).font('Helvetica').fillColor(grayColor);

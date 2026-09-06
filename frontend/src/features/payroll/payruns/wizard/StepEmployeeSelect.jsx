@@ -49,8 +49,16 @@ export function StepEmployeeSelect({
       </div>
 
       {eligibleEmployees.length === 0 ? (
-        <div className="p-6 text-center text-xs text-danger-600 bg-danger-50 border border-danger-600/20 rounded-sm">
-          No employees with a <strong>Running</strong> contract overlapping this pay period were found.
+        <div className="p-6 text-center text-xs text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-sm flex flex-col items-center gap-3">
+          <span>No employees with an <strong>ACTIVE</strong> contract overlapping this pay period were found.</span>
+          <a
+            href="/contracts"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C5A059] hover:bg-[#b38e36] text-slate-950 rounded-sm font-bold text-xs transition-colors"
+          >
+            Go to Contracts Directory &rarr;
+          </a>
         </div>
       ) : (
         <div className="border border-border rounded-sm overflow-hidden max-h-64 overflow-y-auto">
@@ -84,7 +92,7 @@ export function StepEmployeeSelect({
                       />
                     </td>
                     <td className="px-3 py-1 font-bold text-ink-900">
-                      {emp.employeeName}
+                      {emp.employeeName || emp.name || `Employee #${emp.employeeId}`}
                       {!emp.hasBankDetails && (
                         <span className="ml-2 px-1.5 py-0.2 text-[10px] bg-amber-50 text-amber-600 rounded-pill border border-amber-600/30">
                           Missing Bank

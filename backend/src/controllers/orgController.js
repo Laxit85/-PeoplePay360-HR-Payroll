@@ -48,7 +48,7 @@ exports.getJobPositions = async (req, res) => {
 exports.createJobPosition = async (req, res) => {
   try {
     const { title, department_id } = req.body;
-    const [result] = await pool.execute(
+    const [result] = await pool.query(
       'INSERT INTO job_positions (title, department_id) VALUES (?, ?)',
       [title, department_id]
     );
@@ -57,3 +57,30 @@ exports.createJobPosition = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
+
+// GET /api/org/roles
+exports.getRoles = async (req, res) => {
+  try {
+    const [roles] = await pool.query('SELECT * FROM roles ORDER BY id ASC');
+    res.status(200).json({ success: true, count: roles.length, data: roles });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/org/branches
+exports.getBranches = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      data: [
+        { id: 'hq', name: 'Global Headquarters', city: 'Bangalore', country: 'India' },
+        { id: 'mumbai', name: 'West Regional Hub', city: 'Mumbai', country: 'India' },
+        { id: 'delhi', name: 'North Operations Center', city: 'New Delhi', country: 'India' }
+      ]
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

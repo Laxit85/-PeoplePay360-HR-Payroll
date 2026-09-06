@@ -11,7 +11,8 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  namedPlaceholders: true
+  namedPlaceholders: true,
+  multipleStatements: true
 });
 
 // Test Database Connection Function
@@ -28,7 +29,21 @@ const testDBConnection = async () => {
   }
 };
 
-module.exports = {
-  pool,
-  testDBConnection
-};
+// Proxy to support both direct pool usage (require('db').query) and destructured usage ({ pool, testDBConnection } = require('db'))
+const proxyPool = new Proxy(pool, {
+  get(target, prop) {
+    if (prop === 'pool') {
+      return target;
+    }
+    if (prop === 'testDBConnection') {
+      return testDBConnection;
+    }
+    const val = Reflect.get(target, prop, target);
+    if (typeof val === 'function') {
+      return val.bind(target);
+    }
+    return val;
+  }
+});
+
+module.exports = proxyPool;

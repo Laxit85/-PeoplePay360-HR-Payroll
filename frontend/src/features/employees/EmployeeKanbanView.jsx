@@ -1,42 +1,51 @@
 import React from 'react';
-import { Briefcase, Building } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Briefcase, Building, FileText } from 'lucide-react';
 
 export function EmployeeCard({ employee, onClick }) {
+  const navigate = useNavigate();
+
   return (
     <div
       onClick={onClick}
-      className="p-4 bg-surface border border-border rounded-[var(--radius-md)] hover:border-primary-600/60 hover:shadow-gold transition-all cursor-pointer flex flex-col justify-between gap-3 group"
+      className="p-4 bg-[#131726] border border-[#232d4b] rounded-xl hover:border-[#C5A059]/80 hover:shadow-[0_4px_25px_rgba(197,160,89,0.18)] transition-all cursor-pointer flex flex-col justify-between gap-3.5 group shadow-md"
     >
       <div className="flex items-start gap-3">
         <img
-          src={employee.avatarUrl}
+          src={employee.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name || 'User')}&background=random`}
           alt={employee.name}
-          className="w-12 h-12 rounded-full object-cover border border-primary-600/40 shrink-0"
+          className="w-12 h-12 rounded-full object-cover border-2 border-[#C5A059]/60 shrink-0 shadow-sm"
         />
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-ink-900 group-hover:text-primary-600 transition-colors truncate">
+          <h3 className="text-sm font-bold text-slate-100 group-hover:text-[#C5A059] transition-colors truncate">
             {employee.name}
           </h3>
-          <p className="text-xs text-ink-600 truncate flex items-center gap-1 mt-0.5">
-            <Briefcase className="w-3 h-3 text-primary-600 shrink-0" />
-            <span>{employee.jobTitle}</span>
+          <p className="text-xs text-slate-300 truncate flex items-center gap-1.5 mt-0.5 font-medium">
+            <Briefcase className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+            <span className="truncate">{employee.jobTitle}</span>
           </p>
-          <p className="text-xs text-ink-600 truncate flex items-center gap-1 mt-0.5">
-            <Building className="w-3 h-3 text-ink-400 shrink-0" />
-            <span>{employee.department}</span>
+          <p className="text-xs text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
+            <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span className="truncate">{employee.department}</span>
           </p>
         </div>
       </div>
 
-      <div className="pt-2.5 border-t border-border flex items-center justify-between text-xs text-ink-600">
-        <span className="px-2.5 py-0.5 rounded-pill bg-surface-muted border border-border text-[11px] font-semibold text-ink-900">
+      <div className="pt-3 border-t border-[#232d4b] flex items-center justify-between text-xs">
+        <span className="px-2.5 py-0.5 rounded-full bg-slate-800/90 border border-slate-700 text-[11px] font-semibold text-slate-200">
           {employee.employeeType || 'Full-time'}
         </span>
-        <div className="flex items-center gap-3">
-          <span className="font-bold text-primary-600">
-            {employee.counts?.contracts || 0} Contracts
-          </span>
-        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/employees/${employee.id}/contracts`);
+          }}
+          className="flex items-center gap-1.5 font-bold text-xs text-[#C5A059] hover:text-slate-950 bg-[#C5A059]/15 hover:bg-[#C5A059] px-2.5 py-1 rounded border border-[#C5A059]/35 transition-all cursor-pointer"
+          title={`View and manage contracts for ${employee.name}`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Contracts ({employee.counts?.contracts || 0})</span>
+        </button>
       </div>
     </div>
   );
@@ -51,3 +60,4 @@ export function EmployeeKanbanView({ employees = [], onSelect }) {
     </div>
   );
 }
+

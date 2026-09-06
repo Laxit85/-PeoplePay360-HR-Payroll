@@ -21,7 +21,7 @@ export const Button = React.forwardRef(
 
     const variants = {
       primary:
-        'btn-primary bg-primary-600 text-surface-sunken hover:bg-primary-700 active:scale-95 shadow-3d hover:shadow-gold-lg gold-shimmer',
+        'btn-primary bg-[#C5A059] hover:bg-[#b38e36] text-slate-950 font-bold active:scale-95 shadow-md shadow-amber-500/20',
       secondary:
         'bg-surface-muted border border-border-strong text-ink-900 hover:bg-surface hover:border-primary-600/60 hover:text-primary-600 active:scale-95 shadow-3d',
       ghost:

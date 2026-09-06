@@ -103,7 +103,7 @@ export function RuleListPage() {
       key: 'details',
       header: 'Value / Formula',
       render: (_, row) => {
-        if (row.computationMethod === 'Fixed Amount') return `$${row.fixedAmount}`;
+        if (row.computationMethod === 'Fixed Amount') return `₹${row.fixedAmount}`;
         if (row.computationMethod === 'Percentage')
           return `${row.amountPercentage}% of ${row.percentageBase}`;
         return <code className="text-xs bg-surface-muted px-1.5 py-0.5 rounded">{row.formula}</code>;
@@ -197,7 +197,7 @@ export function RuleListPage() {
 
           {computationMethod === 'Fixed Amount' && (
             <Input
-              label="Fixed Amount ($ USD)"
+              label="Fixed Amount (₹ INR)"
               type="number"
               value={fixedAmount}
               onChange={(e) => setFixedAmount(e.target.value)}

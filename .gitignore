@@ -64,6 +64,6 @@ dump.rdb
 *.sql.gz
 
 # Docker / local mounts
-data/
+/data/
 mysql_data/
 docker-compose.override.yml

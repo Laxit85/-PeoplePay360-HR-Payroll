@@ -17,7 +17,7 @@ router.route('/')
 router.route('/:id')
   .get(protect, getStructureById);
 
-router.post('/:id/rules', protect, authorize('HR_PAYROLL_MANAGER', 'ADMIN'), addOrUpdateRule);
-router.delete('/:id/rules/:ruleId', protect, authorize('HR_PAYROLL_MANAGER', 'ADMIN'), deleteRule);
+router.post('/:id/rules', protect, authorize('ADMIN'), addOrUpdateRule);
+router.delete('/:id/rules/:ruleId', protect, authorize('ADMIN'), deleteRule);
 
 module.exports = router;

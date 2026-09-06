@@ -114,11 +114,21 @@ export function EmployeeFormPage() {
           </div>
         </div>
 
-        {can('employees.update') && (
-          <Button variant="primary" icon={Save} onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            icon={FileText}
+            onClick={() => navigate(`/employees/${id}/contracts`)}
+          >
+            Manage Contracts
           </Button>
-        )}
+
+          {can('employees.update') && (
+            <Button variant="primary" icon={Save} onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Smart Buttons Pill Bar */}

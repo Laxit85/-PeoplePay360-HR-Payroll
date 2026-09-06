@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Award } from 'lucide-react';
-import { getTimeOffAllocations } from '../../mockApi/apiHandlers';
+import { getTimeOffAllocationsApi } from '../../api';
 import { DataTable } from '../../components/data/DataTable';
 import { BalanceMeter } from './components/BalanceMeter';
 
@@ -15,8 +15,31 @@ export function AllocationsPage() {
   const fetchAllocations = async () => {
     setLoading(true);
     try {
-      const list = await getTimeOffAllocations(empFilter);
-      setAllocations(list);
+      const res = await getTimeOffAllocationsApi({ employee_id: empFilter });
+      const raw = res?.data || res || [];
+      const formatted = raw.map((a) => {
+        const empName = a.first_name
+          ? `${a.first_name} ${a.last_name || ''}`.trim()
+          : a.employee_name || 'Employee';
+        const empCode = a.employee_code ? `(${a.employee_code})` : '';
+        const alloc = parseFloat(a.allocated_days ?? 0);
+        const taken = parseFloat(a.taken_days ?? 0);
+        const remaining = parseFloat(a.remaining_days ?? (alloc - taken));
+        const yr = a.valid_from ? new Date(a.valid_from).getFullYear() : 2026;
+
+        return {
+          id: a.id,
+          employeeName: `${empName} ${empCode}`.trim(),
+          typeName: a.time_off_type_name || a.type_name || 'Leave',
+          year: yr,
+          allocated: alloc,
+          taken: taken,
+          remaining: remaining,
+        };
+      });
+      setAllocations(formatted);
+    } catch (err) {
+      console.error('Failed to load allocations', err);
     } finally {
       setLoading(false);
     }

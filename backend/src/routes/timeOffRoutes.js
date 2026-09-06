@@ -8,7 +8,8 @@ const {
   getRequests,
   createRequest,
   approveRequest,
-  refuseRequest
+  refuseRequest,
+  updateRequestStatus
 } = require('../controllers/timeOffController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -30,5 +31,6 @@ router.route('/requests')
 
 router.put('/requests/:id/approve', protect, authorize('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN'), approveRequest);
 router.put('/requests/:id/refuse', protect, authorize('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN'), refuseRequest);
+router.put('/requests/:id/status', protect, authorize('HR_MANAGER', 'HR_PAYROLL_MANAGER', 'ADMIN'), updateRequestStatus);
 
 module.exports = router;

@@ -10,11 +10,20 @@ import {
 } from 'recharts';
 import { formatCurrency } from '../../lib/format';
 
-export function DeptCostBarChart({ data = [] }) {
+export function DeptCostBarChart({ data = [], currency = 'INR' }) {
+  // Normalize data keys to ensure department and grossCost are always present
+  const chartData = data.map((item) => ({
+    ...item,
+    department: item.department || item.dept || 'General',
+    grossCost: item.grossCost !== undefined ? item.grossCost : (item.gross || 0),
+  }));
+
+  const symbol = currency === 'USD' ? '$' : '₹';
+
   return (
     <div className="w-full h-64">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+        <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="department"
@@ -28,10 +37,10 @@ export function DeptCostBarChart({ data = [] }) {
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `$${v / 1000}k`}
+            tickFormatter={(v) => `${symbol}${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
           />
           <Tooltip
-            formatter={(value) => [formatCurrency(value), 'Gross Cost']}
+            formatter={(value) => [formatCurrency(value, currency), 'Gross Cost']}
             contentStyle={{
               backgroundColor: 'var(--surface)',
               borderColor: 'var(--border-strong)',

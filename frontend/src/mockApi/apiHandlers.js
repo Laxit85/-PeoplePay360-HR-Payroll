@@ -239,6 +239,14 @@ export async function saveMockSchedule(schedData) {
   return true;
 }
 
+export async function deleteMockSchedule(id) {
+  await delay();
+  const data = db.get();
+  data.schedules = (data.schedules || []).filter((s) => s.id !== id);
+  db.save(data);
+  return true;
+}
+
 // ---------------- ATTENDANCE ----------------
 export async function getMockAttendance(employeeId = null) {
   await delay();

@@ -38,7 +38,15 @@ exports.getAttendances = async (req, res) => {
       params.push(start_date, end_date);
     }
 
-    query += ' ORDER BY a.attendance_date DESC, a.check_in DESC';
+    if (req.user && req.user.role === 'EMPLOYEE') {
+      const userEmpId = req.user.employeeId || req.user.employee?.id;
+      if (userEmpId) {
+        query += ' AND a.employee_id = ?';
+        params.push(userEmpId);
+      }
+    }
+
+    query += ' ORDER BY (a.check_out IS NULL) DESC, a.attendance_date DESC, a.check_in DESC';
 
     const [attendances] = await pool.execute(query, params);
     res.status(200).json({ success: true, count: attendances.length, data: attendances });
@@ -50,10 +58,15 @@ exports.getAttendances = async (req, res) => {
 // POST /api/attendance/check-in
 exports.checkIn = async (req, res) => {
   try {
-    const { employee_id } = req.body;
+    let employee_id = req.body?.employee_id || req.user?.employeeId || req.user?.employee?.id;
+    if (!employee_id && req.user?.id) {
+      const [empRows] = await pool.query('SELECT id FROM employees WHERE user_id = ? OR email = ?', [req.user.id, req.user.email]);
+      if (empRows.length > 0) employee_id = empRows[0].id;
+    }
+    if (!employee_id) employee_id = 1;
 
     // Check if open check-in already exists
-    const [open] = await pool.execute(
+    const [open] = await pool.query(
       'SELECT id FROM attendances WHERE employee_id = ? AND check_out IS NULL',
       [employee_id]
     );
@@ -65,10 +78,9 @@ exports.checkIn = async (req, res) => {
       });
     }
 
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
 
-    const [result] = await pool.execute(
+    const [result] = await pool.query(
       `INSERT INTO attendances (employee_id, attendance_date, check_in, planned_hours, status) 
        VALUES (?, ?, NOW(), 8.00, 'ON_TIME')`,
       [employee_id, today]
@@ -87,9 +99,14 @@ exports.checkIn = async (req, res) => {
 // POST /api/attendance/check-out
 exports.checkOut = async (req, res) => {
   try {
-    const { employee_id } = req.body;
+    let employee_id = req.body?.employee_id || req.user?.employeeId || req.user?.employee?.id;
+    if (!employee_id && req.user?.id) {
+      const [empRows] = await pool.query('SELECT id FROM employees WHERE user_id = ? OR email = ?', [req.user.id, req.user.email]);
+      if (empRows.length > 0) employee_id = empRows[0].id;
+    }
+    if (!employee_id) employee_id = 1;
 
-    const [open] = await pool.execute(
+    const [open] = await pool.query(
       'SELECT * FROM attendances WHERE employee_id = ? AND check_out IS NULL ORDER BY check_in DESC LIMIT 1',
       [employee_id]
     );
@@ -117,7 +134,7 @@ exports.checkOut = async (req, res) => {
       status = 'EARLY_EXIT';
     }
 
-    await pool.execute(
+    await pool.query(
       `UPDATE attendances SET 
         check_out = NOW(), 
         worked_hours = ?, 
@@ -137,11 +154,100 @@ exports.checkOut = async (req, res) => {
   }
 };
 
+// POST /api/attendance/clock (Toggle check-in / check-out)
+exports.clock = async (req, res) => {
+  try {
+    let employee_id = req.body?.employee_id || req.user?.employeeId || req.user?.employee?.id;
+    if (!employee_id && req.user?.id) {
+      const [empRows] = await pool.query('SELECT id FROM employees WHERE user_id = ? OR email = ?', [req.user.id, req.user.email]);
+      if (empRows.length > 0) employee_id = empRows[0].id;
+    }
+    if (!employee_id) employee_id = 1;
+
+    const [open] = await pool.query(
+      'SELECT id, check_in FROM attendances WHERE employee_id = ? AND check_out IS NULL ORDER BY check_in DESC LIMIT 1',
+      [employee_id]
+    );
+
+    if (open.length > 0) {
+      return exports.checkOut(req, res);
+    } else {
+      return exports.checkIn(req, res);
+    }
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/attendance/stats
+exports.getStats = async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const [[{ total_present }]] = await pool.query(
+      'SELECT COUNT(DISTINCT employee_id) AS total_present FROM attendances WHERE attendance_date = ?',
+      [today]
+    );
+    const [[{ currently_clocked_in }]] = await pool.query(
+      'SELECT COUNT(*) AS currently_clocked_in FROM attendances WHERE attendance_date = ? AND check_out IS NULL',
+      [today]
+    );
+    const [[{ late_arrivals }]] = await pool.query(
+      "SELECT COUNT(*) AS late_arrivals FROM attendances WHERE attendance_date = ? AND status = 'LATE'",
+      [today]
+    );
+    res.status(200).json({
+      success: true,
+      data: {
+        total_present: total_present || 0,
+        currently_clocked_in: currently_clocked_in || 0,
+        late_arrivals: late_arrivals || 0
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // PUT /api/attendance/:id/correct (Manual correction restricted to HR)
 exports.correctAttendance = async (req, res) => {
   try {
     const attendanceId = req.params.id;
-    const { check_in, check_out, worked_hours, status, correction_reason } = req.body;
+    let { check_in, check_out, worked_hours, status, correction_reason } = req.body;
+
+    let formattedCheckIn = null;
+    if (check_in) {
+      const d = new Date(check_in);
+      if (!isNaN(d.getTime())) {
+        formattedCheckIn = d.toISOString().slice(0, 19).replace('T', ' ');
+      }
+    }
+
+    let formattedCheckOut = null;
+    if (check_out) {
+      const d = new Date(check_out);
+      if (!isNaN(d.getTime())) {
+        formattedCheckOut = d.toISOString().slice(0, 19).replace('T', ' ');
+      }
+    }
+
+    // Normalize status enum if passed as friendly string
+    let normStatus = status;
+    if (status) {
+      const s = String(status).toUpperCase().replace(/\s+/g, '_');
+      if (s === 'PRESENT' || s === 'ON_TIME') normStatus = 'ON_TIME';
+      else if (s === 'LATE') normStatus = 'LATE';
+      else if (s === 'OVERTIME') normStatus = 'OVERTIME';
+      else if (s === 'EARLY_EXIT' || s === 'EARLYEXIT') normStatus = 'EARLY_EXIT';
+      else if (s === 'MISSING_CHECKOUT' || s === 'MISSINGCHECKOUT') normStatus = 'MISSING_CHECKOUT';
+    }
+
+    let finalWorkedHours = worked_hours;
+    if (check_in && check_out) {
+      const diffMs = new Date(check_out).getTime() - new Date(check_in).getTime();
+      if (diffMs > 0) {
+        finalWorkedHours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+      }
+    }
 
     await pool.execute(
       `UPDATE attendances SET
@@ -154,9 +260,12 @@ exports.correctAttendance = async (req, res) => {
         corrected_by_user_id = ?
        WHERE id = ?`,
       [
-        check_in, check_out, worked_hours, status,
+        formattedCheckIn,
+        formattedCheckOut,
+        finalWorkedHours != null ? finalWorkedHours : null,
+        normStatus || null,
         correction_reason || 'Manual administrative correction',
-        req.user.id,
+        req.user?.id || null,
         attendanceId
       ]
     );

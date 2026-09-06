@@ -7,7 +7,9 @@ const controller = require('./attendance.controller');
 const authenticate = require('../../middleware/auth.middleware');
 const authorize = require('../../middleware/rbac.middleware');
 
-router.get('/', authenticate, authorize('hr_manager', 'admin'), controller.list);
+router.get('/stats', authenticate, controller.getStats);
+router.post('/clock', authenticate, controller.clock);
+router.get('/', authenticate, controller.list);
 router.post('/check-in', authenticate, controller.checkIn);
 router.post('/check-out', authenticate, controller.checkOut);
 

@@ -187,6 +187,33 @@ async function runTests() {
     }
   });
 
+  // 14. Email System: Test Email Delivery Endpoint
+  await test('POST /api/payruns/test-email (Live Diagnostic)', async () => {
+    const res = await fetch(`${BASE_URL}/payruns/test-email`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ email: 'audit.test@peoplepay360.internal' })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to dispatch test email');
+    }
+  });
+
+  // 15. Email System: On-demand Monthly Distribution Endpoint
+  await test('POST /api/payruns/distribute-monthly', async () => {
+    const res = await fetch(`${BASE_URL}/payruns/distribute-monthly`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ force: false })
+    });
+    const data = await res.json();
+    // Accept either true or a graceful no-payruns-found notice
+    if (res.status !== 200 && res.status !== 404) {
+      throw new Error(data.message || 'Failed monthly distribution endpoint');
+    }
+  });
+
   console.log('\n====================================================');
   console.log(` RESULTS: ${passed} PASSED | ${failed} FAILED`);
   console.log('====================================================');

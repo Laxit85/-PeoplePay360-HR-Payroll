@@ -13,64 +13,140 @@ async function resolveActiveContract(employeeId, periodStart, periodEnd) {
      LIMIT 1`,
     [employeeId, periodEnd, periodStart]
   );
-  return contracts[0] || null;
+  if (contracts.length > 0) return contracts[0];
+
+  const [fallback] = await pool.execute(
+    `SELECT c.*, ss.name AS salary_structure_name 
+     FROM contracts c 
+     JOIN salary_structures ss ON c.salary_structure_id = ss.id 
+     WHERE c.employee_id = ? AND c.status = 'ACTIVE' 
+     ORDER BY c.id DESC LIMIT 1`,
+    [employeeId]
+  );
+  return fallback[0] || null;
 }
 
 /**
  * Computes scheduled working days, attendance worked days, and unpaid leaves
+ * bounded by active contract duration and in (9am) / out (6pm) attendance logs
  */
-async function computeAttendanceAndLeaves(employeeId, periodStart, periodEnd) {
+async function computeAttendanceAndLeaves(employeeId, periodStart, periodEnd, contract = null) {
+  let activeContract = contract;
+  if (!activeContract) {
+    activeContract = await resolveActiveContract(employeeId, periodStart, periodEnd);
+  }
+
   const pStart = new Date(periodStart);
   const pEnd = new Date(periodEnd);
 
-  // Approximate default standard work days (Mon-Fri) in period
+  let effectiveStart = pStart;
+  if (activeContract && activeContract.start_date) {
+    const cStart = new Date(activeContract.start_date);
+    if (cStart > pStart) {
+      effectiveStart = cStart;
+    }
+  }
+
+  let effectiveEnd = pEnd;
+  if (activeContract && activeContract.end_date) {
+    const cEnd = new Date(activeContract.end_date);
+    if (cEnd < pEnd) {
+      effectiveEnd = cEnd;
+    }
+  }
+
+  const effectiveStartStr = effectiveStart.toISOString().split('T')[0];
+  const effectiveEndStr = effectiveEnd.toISOString().split('T')[0];
+
+  // Scheduled work days (Mon-Fri) within effective contract period
   let scheduledWorkDays = 0;
-  let curr = new Date(pStart);
-  while (curr <= pEnd) {
+  let curr = new Date(effectiveStart);
+  while (curr <= effectiveEnd) {
     const day = curr.getDay();
     if (day !== 0 && day !== 6) scheduledWorkDays++; // Exclude Sun and Sat
     curr.setDate(curr.getDate() + 1);
   }
 
-  // Count approved attendance check-in records in this period
-  const [[{ attended_days }]] = await pool.execute(
-    `SELECT COUNT(DISTINCT attendance_date) AS attended_days 
+  // Count approved attendance check-in records and hours in effective contract period
+  const [attRows] = await pool.execute(
+    `SELECT 
+       attendance_date, 
+       check_in, 
+       check_out, 
+       worked_hours,
+       TIMESTAMPDIFF(MINUTE, check_in, check_out) / 60.0 AS calc_hours
      FROM attendances 
-     WHERE employee_id = ? AND attendance_date BETWEEN ? AND ?`,
-    [employeeId, periodStart, periodEnd]
+     WHERE employee_id = ? AND attendance_date BETWEEN ? AND ?
+       AND check_in IS NOT NULL`,
+    [employeeId, effectiveStartStr, effectiveEndStr]
   );
 
-  const workedDays = attended_days > 0 ? Math.min(attended_days, scheduledWorkDays) : scheduledWorkDays;
+  let totalWorkedHours = 0;
+  let attendedDaysCount = 0;
 
-  // Query approved UNPAID leaves in period
+  for (const att of attRows) {
+    // Standard shift: 9:00 AM (09:00:00) to 6:00 PM (18:00:00) -> 8 worked hours
+    const hrs = att.worked_hours != null ? parseFloat(att.worked_hours) : (parseFloat(att.calc_hours) || 8.0);
+    totalWorkedHours += hrs;
+    if (hrs >= 7.0) {
+      attendedDaysCount += 1.0;
+    } else if (hrs >= 3.5) {
+      attendedDaysCount += 0.5;
+    } else if (hrs > 0) {
+      attendedDaysCount += Math.round((hrs / 8.0) * 10) / 10;
+    }
+  }
+
+  const workedDays = attRows.length > 0 ? Math.min(attendedDaysCount, scheduledWorkDays) : scheduledWorkDays;
+  const workedHours = totalWorkedHours > 0 ? Math.round(totalWorkedHours * 100) / 100 : (workedDays * 8.0);
+
+  // Query approved UNPAID leaves in effective period
   const [[{ unpaid_leave_days }]] = await pool.execute(
     `SELECT COALESCE(SUM(tor.duration), 0) AS unpaid_leave_days 
      FROM time_off_requests tor 
      JOIN time_off_types tot ON tor.time_off_type_id = tot.id 
      WHERE tor.employee_id = ? AND tot.is_unpaid = 1 AND tor.status = 'APPROVED' 
        AND tor.date_from <= ? AND tor.date_to >= ?`,
-    [employeeId, periodEnd, periodStart]
+    [employeeId, effectiveEndStr, effectiveStartStr]
   );
 
   const finalUnpaidDays = parseFloat(unpaid_leave_days || 0);
+  const finalWorkedDays = Math.max(0, workedDays - finalUnpaidDays);
+  const finalWorkedHours = Math.max(0, workedHours - (finalUnpaidDays * 8.0));
 
   return {
     scheduledWorkDays: scheduledWorkDays || 22,
-    workedDays: Math.max(0, workedDays - finalUnpaidDays),
+    workedDays: finalWorkedDays,
+    workedHours: finalWorkedHours,
+    effectivePeriodStart: effectiveStartStr,
+    effectivePeriodEnd: effectiveEndStr,
     unpaidLeaveDays: finalUnpaidDays
   };
 }
 
 /**
  * Evaluates ordered salary rules in a sequenced DAG pipeline
+ * Daily Wage = Monthly Wage / Scheduled Days
+ * Earned Wage = Daily Wage * Present Days (Worked Days)
  */
 function evaluateSalaryRules(rules, wage, scheduledWorkDays, workedDays, unpaidLeaveDays) {
-  const prorationFactor = scheduledWorkDays > 0 ? (workedDays / scheduledWorkDays) : 1.0;
+  const numWage = parseFloat(wage) || 0;
+  const numScheduledDays = parseFloat(scheduledWorkDays) || 22;
+  const numWorkedDays = parseFloat(workedDays) || 0;
+
+  // Calculate salary per day = monthly wage / scheduled days in period
+  const perDayWage = numScheduledDays > 0 ? (numWage / numScheduledDays) : numWage;
+  // Earned salary based on days present
+  const earnedWage = Math.round(perDayWage * numWorkedDays * 100) / 100;
+  const prorationFactor = numScheduledDays > 0 ? (numWorkedDays / numScheduledDays) : 1.0;
 
   const context = {
-    wage: parseFloat(wage),
+    wage: numWage,
+    perDayWage: Math.round(perDayWage * 100) / 100,
+    earnedWage,
     prorationFactor,
-    workedDays,
+    workedDays: numWorkedDays,
+    scheduledWorkDays: numScheduledDays,
     unpaidLeaveDays,
     rules: {},
     categories: {
@@ -96,13 +172,13 @@ function evaluateSalaryRules(rules, wage, scheduledWorkDays, workedDays, unpaidL
 
       case 'PERCENTAGE':
         const baseKey = (rule.percentage_base_code || 'BASIC').toUpperCase();
-        const baseAmount = context.rules[baseKey] !== undefined ? context.rules[baseKey] : context.wage;
+        const baseAmount = context.rules[baseKey] !== undefined ? context.rules[baseKey] : context.earnedWage;
         amount = (baseAmount * parseFloat(rule.percentage_rate || 0)) / 100;
         break;
 
       case 'FORMULA':
         if (rule.code === 'BASIC') {
-          amount = context.wage * prorationFactor;
+          amount = context.earnedWage * 0.50; // Standard 50% of earned wage
         } else if (rule.code === 'GROSS') {
           amount = context.categories.BASIC + context.categories.ALLOWANCE;
         } else if (rule.code === 'NET') {
@@ -147,6 +223,8 @@ function evaluateSalaryRules(rules, wage, scheduledWorkDays, workedDays, unpaidL
 
   return {
     lines: generatedLines,
+    perDayWage: context.perDayWage,
+    earnedWage: context.earnedWage,
     grossSalary,
     totalDeductions,
     netSalary: Math.max(0, netSalary)
@@ -158,11 +236,12 @@ function evaluateSalaryRules(rules, wage, scheduledWorkDays, workedDays, unpaidL
  */
 async function scanWarnings(employee, contract, netSalary, payrunId, periodStart, periodEnd) {
   const warnings = [];
+  const empId = employee.employee_id || employee.emp_id || employee.id;
 
   // 1. Missing Bank Account
   if (!employee.bank_account_no) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'MISSING_BANK_ACCOUNT',
       severity: 'WARNING',
       message: `Employee ${employee.employee_code} (${employee.first_name} ${employee.last_name}) has no bank account number configured.`
@@ -172,9 +251,9 @@ async function scanWarnings(employee, contract, netSalary, payrunId, periodStart
   // 2. No Active Contract
   if (!contract) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'NO_ACTIVE_CONTRACT',
-      severity: 'CRITICAL',
+      severity: 'WARNING',
       message: `Employee ${employee.employee_code} has no active contract for the period.`
     });
   }
@@ -185,14 +264,14 @@ async function scanWarnings(employee, contract, netSalary, payrunId, periodStart
      WHERE employee_id = ? AND payrun_id != ? 
        AND period_start <= ? AND period_end >= ? 
        AND status IN ('VALIDATED', 'PAID')`,
-    [employee.id, payrunId, periodEnd, periodStart]
+    [empId, payrunId, periodEnd, periodStart]
   );
 
   if (existingSlips.length > 0) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'DUPLICATE_PAYSLIP',
-      severity: 'CRITICAL',
+      severity: 'WARNING',
       message: `Employee ${employee.employee_code} already has a validated/paid payslip for an overlapping period.`
     });
   }
@@ -200,9 +279,9 @@ async function scanWarnings(employee, contract, netSalary, payrunId, periodStart
   // 4. Negative Net Salary Warning
   if (netSalary < 0) {
     warnings.push({
-      employee_id: employee.id,
+      employee_id: empId,
       warning_type: 'NEGATIVE_NET_SALARY',
-      severity: 'CRITICAL',
+      severity: 'WARNING',
       message: `Calculated net salary for ${employee.employee_code} is negative.`
     });
   }
